@@ -34,6 +34,22 @@ def create_ticket(flight_id: int, db: Session = Depends(get_db), identity=Depend
     db.refresh(t)
     return {"confirmation_id": t.confirmation_id}
 
+@router.get("/my")
+def my_tickets(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    email, _roles = identity
+    items = db.query(Ticket).filter(Ticket.user_email == email).order_by(Ticket.purchased_at.desc()).all()
+    return [
+        {
+            "confirmation_id": t.confirmation_id,
+            "status": t.status,
+            "flight_id": t.flight_id,
+            "email": t.user_email,
+            "purchased_at": t.purchased_at.isoformat() if t.purchased_at else None,
+            "price_paid": float(t.price_paid) if t.price_paid is not None else None,
+        }
+        for t in items
+    ]
+
 @router.get("/{confirmation_id}")
 def get_ticket(confirmation_id: str, db: Session = Depends(get_db)):
     t = db.query(Ticket).filter(Ticket.confirmation_id == confirmation_id).first()

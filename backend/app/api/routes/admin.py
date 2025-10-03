@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.company import Company
 from app.models.flight import Flight
 from app.models.ticket import Ticket
+from app.models.company_manager import CompanyManager
 
 router = APIRouter(dependencies=[Depends(require_roles("admin"))])
 
@@ -73,3 +74,69 @@ def service_stats(range: str = "all", db: Session = Depends(get_db)):
         "tickets": tickets,
         "total_sales": float(sales or 0),
     }
+
+
+@router.post("/users/{user_id}/block", response_model=dict)
+def block_user(user_id: int, db: Session = Depends(get_db)):
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        return {"error": "not found"}
+    u.is_active = False
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/users/{user_id}/unblock", response_model=dict)
+def unblock_user(user_id: int, db: Session = Depends(get_db)):
+    u = db.query(User).filter(User.id == user_id).first()
+    if not u:
+        return {"error": "not found"}
+    u.is_active = True
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/companies", response_model=dict)
+def create_company(payload: dict, db: Session = Depends(get_db)):
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return {"error": "name required"}
+    existing = db.query(Company).filter(Company.name == name).first()
+    if existing:
+        return {"id": existing.id}
+    c = Company(name=name, is_active=True)
+    db.add(c)
+    db.commit()
+    db.refresh(c)
+    return {"id": c.id}
+
+
+@router.post("/companies/{company_id}/deactivate", response_model=dict)
+def deactivate_company(company_id: int, db: Session = Depends(get_db)):
+    c = db.query(Company).filter(Company.id == company_id).first()
+    if not c:
+        return {"error": "not found"}
+    c.is_active = False
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/companies/{company_id}/assign-manager", response_model=dict)
+def assign_manager(company_id: int, payload: dict, db: Session = Depends(get_db)):
+    email = (payload.get("email") or "").lower().strip()
+    if not email:
+        return {"error": "email required"}
+    company = db.query(Company).filter(Company.id == company_id, Company.is_active == True).first()
+    if not company:
+        return {"error": "company not found or inactive"}
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return {"error": "user not found"}
+    if user.role != "company_manager":
+        user.role = "company_manager"
+    link = db.query(CompanyManager).filter(CompanyManager.user_id == user.id, CompanyManager.company_id == company.id).first()
+    if not link:
+        link = CompanyManager(user_id=user.id, company_id=company.id)
+        db.add(link)
+    db.commit()
+    return {"status": "ok"}

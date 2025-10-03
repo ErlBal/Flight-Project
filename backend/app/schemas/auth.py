@@ -15,3 +15,7 @@ class UserOut(BaseModel):
     full_name: str
     role: str
     is_active: bool
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str

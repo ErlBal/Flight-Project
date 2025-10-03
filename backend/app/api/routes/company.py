@@ -8,6 +8,7 @@ from app.models.flight import Flight
 from app.models.company import Company
 from app.models.user import User
 from app.models.ticket import Ticket
+from app.models.company_manager import CompanyManager
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
@@ -15,17 +16,18 @@ router = APIRouter(dependencies=[Depends(require_roles("company_manager", "admin
 
 
 def _get_manager_company_id(db: Session, email: str) -> Optional[int]:
-    # For now, map manager user to company by matching user full_name to company name (placeholder).
-    # In future, use a proper association table.
+    # Primary: use CompanyManager association
     user = db.query(User).filter(User.email == email).first()
     if not user:
         return None
-    # naive mapping: if user's full_name matches a company name
+    link = db.query(CompanyManager).filter(CompanyManager.user_id == user.id).first()
+    if link:
+        return link.company_id
+    # Fallback: name heuristic then first active company
     if user.full_name:
         company = db.query(Company).filter(Company.name == user.full_name).first()
         if company:
             return company.id
-    # fallback: first active company
     company = db.query(Company).filter(Company.is_active == True).first()
     return company.id if company else None
 
