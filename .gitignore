@@ -28,7 +28,17 @@ venv/
 *.pid
 tmp/
 
-# Temporary hided files
+# Local database and env artifacts
+backend/app.db
+backend/*.sqlite3
+backend/*.sqlite
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+
 README.md
 ROADMAP.md
 DEPLOYMENT.md
+docs/

@@ -1,0 +1,5 @@
+# Ensure docs render as text
+*.md text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.ts text eol=lf

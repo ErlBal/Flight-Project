@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.core.config import settings
+from app.db.init_db import create_tables, seed_demo_data
 
 app = FastAPI(title="FlightProject API", version="0.1.0")
 
@@ -20,3 +22,10 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+@app.on_event("startup")
+def startup():
+    # Dev-only: auto create tables if using SQLite or dev env
+    if settings.env.lower() in {"dev", "development"}:
+        create_tables()
+        seed_demo_data()
