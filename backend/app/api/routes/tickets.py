@@ -1,6 +1,7 @@
 from datetime import datetime
 import random, string
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -14,9 +15,14 @@ router = APIRouter()
 def _gen_confirmation_id() -> str:
     return "F" + "".join(random.choices(string.ascii_uppercase + string.digits, k=7))
 
+class CreateTicketBody(BaseModel):
+    flight_id: int
+
+@router.post("")
 @router.post("/")
-def create_ticket(flight_id: int, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
     email, _roles = identity
+    flight_id = payload.flight_id
     flight = db.get(Flight, flight_id)
     if not flight or flight.seats_available <= 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Flight unavailable")

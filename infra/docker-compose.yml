@@ -20,6 +20,10 @@ services:
     environment:
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/flightdb
       - ENV=dev
+      - SEED_ADMIN_EMAIL=admin@demo.local
+      - SEED_ADMIN_PASSWORD=Admin1234!
+      - SEED_MANAGER_EMAIL=manager@demo.local
+      - SEED_MANAGER_PASSWORD=Manager1234!
     depends_on:
       - db
     ports:

@@ -10,11 +10,12 @@ python = "^3.11"
 fastapi = "^0.115.0"
 uvicorn = {extras = ["standard"], version = "^0.30.0"}
 sqlalchemy = "^2.0.32"
-pydantic = "^2.8.2"
+pydantic = {version = "^2.8.2", extras = ["email"]}
 pydantic-settings = "^2.4.0"
 psycopg = {extras = ["binary"], version = ">=3.2.10"}
 pyjwt = "^2.9.0"
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+argon2-cffi = "^23.1.0"
 python-multipart = "^0.0.9"
 alembic = "^1.13.2"
 

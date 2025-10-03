@@ -8,16 +8,22 @@ from app.models import ticket  # noqa: F401
 from app.models.base import Base
 from app.models.flight import Flight
 from app.models.company import Company
+from app.models.user import User
+from app.models.company_manager import CompanyManager
+from app.core.config import settings
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
-    # Lightweight migration: ensure tickets.price_paid exists
-    with engine.connect() as conn:
-        try:
-            conn.exec_driver_sql("ALTER TABLE tickets ADD COLUMN price_paid NUMERIC(10,2)")
-        except Exception:
-            # Column likely exists already or backend doesn't support IF NOT EXISTS cleanly
-            pass
+    # Lightweight migration: ensure tickets.price_paid exists (Postgres-friendly)
+    # Use a transaction so DDL is committed on Postgres
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                "ALTER TABLE IF EXISTS tickets ADD COLUMN IF NOT EXISTS price_paid NUMERIC(10,2)"
+            )
+    except Exception:
+        # Best-effort migration; ignore if database doesn't support this syntax
+        pass
 
 def seed_demo_data():
     db = SessionLocal()
@@ -42,5 +48,51 @@ def seed_demo_data():
             ]
             db.add_all(flights)
             db.commit()
+
+        # Seed default admin and manager (idempotent)
+        admin_email = (settings.seed_admin_email or "admin@demo.local").lower()
+        admin_pwd = settings.seed_admin_password or "Admin1234!"
+        manager_email = (settings.seed_manager_email or "manager@demo.local").lower()
+        manager_pwd = settings.seed_manager_password or "Manager1234!"
+
+        from app.core.security import get_password_hash
+
+        admin = db.query(User).filter(User.email == admin_email).first()
+        if not admin:
+            admin = User(
+                email=admin_email,
+                full_name="Admin",
+                hashed_password=get_password_hash(admin_pwd),
+                role="admin",
+                is_active=True,
+            )
+            db.add(admin)
+            db.commit()
+            db.refresh(admin)
+
+        manager = db.query(User).filter(User.email == manager_email).first()
+        if not manager:
+            manager = User(
+                email=manager_email,
+                full_name="Manager",
+                hashed_password=get_password_hash(manager_pwd),
+                role="company_manager",
+                is_active=True,
+            )
+            db.add(manager)
+            db.commit()
+            db.refresh(manager)
+
+        # Ensure manager is assigned to DemoAir
+        if manager:
+            exists = (
+                db.query(CompanyManager)
+                .filter(CompanyManager.user_id == manager.id, CompanyManager.company_id == demo_company.id)
+                .first()
+            )
+            if not exists:
+                link = CompanyManager(user_id=manager.id, company_id=demo_company.id)
+                db.add(link)
+                db.commit()
     finally:
         db.close()

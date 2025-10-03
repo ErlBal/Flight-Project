@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     # Raw env values (strings), we parse them to lists via properties to avoid JSON decoding errors
     admin_emails_raw: Optional[str] = Field(default=None, alias="ADMIN_EMAILS")
     manager_emails_raw: Optional[str] = Field(default=None, alias="MANAGER_EMAILS")
+    # Seed users (dev/demo convenience)
+    seed_admin_email: Optional[str] = Field(default=None, alias="SEED_ADMIN_EMAIL")
+    seed_admin_password: Optional[str] = Field(default=None, alias="SEED_ADMIN_PASSWORD")
+    seed_manager_email: Optional[str] = Field(default=None, alias="SEED_MANAGER_EMAIL")
+    seed_manager_password: Optional[str] = Field(default=None, alias="SEED_MANAGER_PASSWORD")
 
     class Config:
         # Load env from backend/.env regardless of CWD
