@@ -27,6 +27,7 @@ def create_ticket(flight_id: int, db: Session = Depends(get_db), identity=Depend
         flight_id=flight_id,
         status="paid",
         purchased_at=datetime.utcnow(),
+        price_paid=flight.price,
     )
     db.add(t)
     db.commit()

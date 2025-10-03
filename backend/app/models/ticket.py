@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, ForeignKey, DateTime, Boolean
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Boolean, Numeric
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
 
@@ -13,3 +13,4 @@ class Ticket(Base):
     flight_id: Mapped[int] = mapped_column(Integer, ForeignKey("flights.id"))
     status: Mapped[str] = mapped_column(String(32), default="paid")  # paid, refunded, canceled
     purchased_at: Mapped[datetime] = mapped_column(DateTime)
+    price_paid: Mapped[float] = mapped_column(Numeric(10, 2))

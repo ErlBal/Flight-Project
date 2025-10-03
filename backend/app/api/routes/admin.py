@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles
@@ -32,13 +33,39 @@ def list_companies(db: Session = Depends(get_db)):
 
 
 @router.get("/stats", response_model=dict)
-def service_stats(db: Session = Depends(get_db)):
+def service_stats(range: str = "all", db: Session = Depends(get_db)):
+    def _time_range(name: str):
+        now = datetime.utcnow()
+        if name == "today":
+            start = datetime(now.year, now.month, now.day)
+            end = start + timedelta(days=1)
+        elif name == "week":
+            start = now - timedelta(days=7)
+            end = now
+        elif name == "month":
+            start = now - timedelta(days=30)
+            end = now
+        else:
+            return None, None
+        return start, end
+
     users = db.query(func.count(User.id)).scalar() or 0
     companies = db.query(func.count(Company.id)).scalar() or 0
-    flights = db.query(func.count(Flight.id)).scalar() or 0
-    tickets = db.query(func.count(Ticket.id)).scalar() or 0
-    # total sales: sum price of flights for paid tickets (rough approx)
-    sales = db.query(func.coalesce(func.sum(Flight.price), 0)).join(Ticket, Ticket.flight_id == Flight.id).filter(Ticket.status == "paid").scalar()
+    flights_q = db.query(Flight)
+    start, end = _time_range(range)
+    if start and end:
+        flights_q = flights_q.filter(Flight.departure >= start, Flight.departure < end)
+    flights = flights_q.count()
+
+    tickets_q = db.query(Ticket)
+    if start and end:
+        tickets_q = tickets_q.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
+    tickets = tickets_q.count()
+
+    sales_q = db.query(func.coalesce(func.sum(Ticket.price_paid), 0)).filter(Ticket.status == "paid")
+    if start and end:
+        sales_q = sales_q.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
+    sales = sales_q.scalar()
     return {
         "users": users,
         "companies": companies,

@@ -8,6 +8,8 @@ from app.models.flight import Flight
 from app.models.company import Company
 from app.models.user import User
 from app.models.ticket import Ticket
+from sqlalchemy import func
+from datetime import datetime, timedelta
 
 router = APIRouter(dependencies=[Depends(require_roles("company_manager", "admin"))])
 
@@ -127,3 +129,47 @@ def list_passengers(flight_id: int, db: Session = Depends(get_db), identity=Depe
         }
         for t in tickets
     ]
+
+
+def _time_range(filter_name: str):
+    now = datetime.utcnow()
+    if filter_name == "today":
+        start = datetime(now.year, now.month, now.day)
+        end = start + timedelta(days=1)
+    elif filter_name == "week":
+        start = now - timedelta(days=7)
+        end = now
+    elif filter_name == "month":
+        start = now - timedelta(days=30)
+        end = now
+    else:  # all
+        return None, None
+    return start, end
+
+
+@router.get("/stats", response_model=dict)
+def company_stats(range: str = "all", db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    email, _roles = identity
+    company_id = _get_manager_company_id(db, email)
+    if not company_id:
+        return {"flights": 0, "active": 0, "completed": 0, "passengers": 0, "revenue": 0.0}
+    start, end = _time_range(range)
+
+    fq = db.query(Flight).filter(Flight.company_id == company_id)
+    if start and end:
+        fq = fq.filter(Flight.departure >= start, Flight.departure < end)
+    flights_total = fq.count()
+
+    now = datetime.utcnow()
+    active = db.query(Flight).filter(Flight.company_id == company_id, Flight.departure > now).count()
+    completed = db.query(Flight).filter(Flight.company_id == company_id, Flight.departure <= now).count()
+
+    tq = db.query(Ticket).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id == company_id, Ticket.status == "paid")
+    if start and end:
+        tq = tq.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
+    passengers = tq.count()
+    revenue = db.query(func.coalesce(func.sum(Ticket.price_paid), 0)).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id == company_id, Ticket.status == "paid")
+    if start and end:
+        revenue = revenue.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
+    revenue = revenue.scalar() or 0
+    return {"flights": flights_total, "active": active, "completed": completed, "passengers": passengers, "revenue": float(revenue)}

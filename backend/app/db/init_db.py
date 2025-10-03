@@ -11,6 +11,13 @@ from app.models.company import Company
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    # Lightweight migration: ensure tickets.price_paid exists
+    with engine.connect() as conn:
+        try:
+            conn.exec_driver_sql("ALTER TABLE tickets ADD COLUMN price_paid NUMERIC(10,2)")
+        except Exception:
+            # Column likely exists already or backend doesn't support IF NOT EXISTS cleanly
+            pass
 
 def seed_demo_data():
     db = SessionLocal()
