@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import api, { extractErrorMessage } from '../lib/api'
 
+// Domain types
 type CompanyFlight = {
   id: number
   airline: string
@@ -17,12 +18,35 @@ type CompanyFlight = {
 type Passenger = { confirmation_id: string; user_email: string; status: string }
 type CompanyStats = { flights:number; active:number; completed:number; passengers:number; revenue:number; seats_capacity:number; seats_sold:number; load_factor:number }
 
+type FlightCreateForm = {
+  airline: string
+  flight_number: string
+  origin: string
+  destination: string
+  departure: string
+  arrival: string
+  price: number | string
+  seats_total: number | string
+  seats_available: number | string
+}
+
+type FlightEditForm = {
+  airline: string
+  flight_number: string
+  origin: string
+  destination: string
+  departure: string // local datetime (YYYY-MM-DDTHH:mm)
+  arrival: string   // local datetime
+  price: number | string
+  seats_total: number | string
+}
+
 export default function CompanyDashboard() {
   const [flights, setFlights] = useState<CompanyFlight[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
-  const [form, setForm] = useState<any>({
+  const [form, setForm] = useState<FlightCreateForm>({
     airline: 'DemoAir',
     flight_number: '',
     origin: '',
@@ -36,7 +60,7 @@ export default function CompanyDashboard() {
   const [passengers, setPassengers] = useState<Record<number, Passenger[]>>({})
   const [loadingPassengers, setLoadingPassengers] = useState<Record<number, boolean>>({})
   const [editingId, setEditingId] = useState<number|null>(null)
-  const [editForm, setEditForm] = useState<any>(null)
+  const [editForm, setEditForm] = useState<FlightEditForm | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
   const [deleting, setDeleting] = useState<Record<number, boolean>>({})
   const [stats, setStats] = useState<CompanyStats | null>(null)
@@ -87,17 +111,17 @@ export default function CompanyDashboard() {
 
   const togglePassengers = async (fid: number) => {
     if (passengers[fid]) {
-      setPassengers(p => { const copy = { ...p }; delete copy[fid]; return copy })
+      setPassengers((prev: Record<number, Passenger[]>) => { const copy = { ...prev }; delete copy[fid]; return copy })
       return
     }
-    setLoadingPassengers(lp => ({ ...lp, [fid]: true }))
+    setLoadingPassengers((prev: Record<number, boolean>) => ({ ...prev, [fid]: true }))
     try {
       const r = await api.get(`/company/flights/${fid}/passengers`)
-      setPassengers(p => ({ ...p, [fid]: r.data || [] }))
+      setPassengers((prev: Record<number, Passenger[]>) => ({ ...prev, [fid]: r.data || [] }))
     } catch (e: any) {
       alert(extractErrorMessage(e?.response?.data) || 'Ошибка пассажиров')
     } finally {
-      setLoadingPassengers(lp => ({ ...lp, [fid]: false }))
+      setLoadingPassengers((prev: Record<number, boolean>) => ({ ...prev, [fid]: false }))
     }
   }
 
@@ -121,7 +145,7 @@ export default function CompanyDashboard() {
   const cancelEdit = () => { setEditingId(null); setEditForm(null); }
 
   const saveEdit = async (e:React.FormEvent) => {
-    e.preventDefault(); if(editingId==null) return
+    e.preventDefault(); if(editingId==null || !editForm) return
     setSavingEdit(true)
     try {
       await api.put(`/company/flights/${editingId}`, {
@@ -139,13 +163,13 @@ export default function CompanyDashboard() {
 
   const deleteFlight = async (fid:number) => {
     if(!confirm('Удалить рейс? Все билеты будут возвращены.')) return
-    setDeleting(d=>({ ...d, [fid]: true }))
+  setDeleting((prev: Record<number, boolean>)=>({ ...prev, [fid]: true }))
     try {
       await api.delete(`/company/flights/${fid}`)
       await load(); await loadStats();
     } catch(e:any){
       alert(extractErrorMessage(e?.response?.data) || 'Ошибка удаления')
-    } finally { setDeleting(d=>({ ...d, [fid]: false })) }
+  } finally { setDeleting((prev: Record<number, boolean>)=>({ ...prev, [fid]: false })) }
   }
 
   return (
@@ -174,20 +198,26 @@ export default function CompanyDashboard() {
       </div>
       <h3>Добавить рейс</h3>
       <form onSubmit={submit} style={{ display:'grid', gap:8, maxWidth:600, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
-        {['flight_number','origin','destination'].map(f => (
-          <input key={f} placeholder={f} value={form[f]} onChange={e => setForm((o:any) => ({ ...o, [f]: e.target.value }))} required />
+        {(['flight_number','origin','destination'] as const).map(field => (
+          <input
+            key={field}
+            placeholder={field}
+            value={form[field]}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, [field]: e.target.value }))}
+            required
+          />
         ))}
-        <input type='datetime-local' value={form.departure} onChange={e => setForm((o:any) => ({ ...o, departure: e.target.value }))} required />
-        <input type='datetime-local' value={form.arrival} onChange={e => setForm((o:any) => ({ ...o, arrival: e.target.value }))} required />
-        <input type='number' placeholder='price' value={form.price} onChange={e => setForm((o:any) => ({ ...o, price: e.target.value }))} min={0} required />
-        <input type='number' placeholder='seats_total' value={form.seats_total} onChange={e => setForm((o:any) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
+        <input type='datetime-local' value={form.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, departure: e.target.value }))} required />
+        <input type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
+        <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
+        <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
         <button type='submit' disabled={creating}>{creating ? '...' : 'Создать'}</button>
       </form>
       <h3 style={{ marginTop:24 }}>Мои рейсы</h3>
       {loading && <p>Загрузка...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
       <ul style={{ listStyle:'none', padding:0 }}>
-        {flights.map(f => (
+        {flights.map((f: CompanyFlight) => (
           <li key={f.id} style={{ border:'1px solid #ddd', padding:10, marginBottom:8 }}>
             <div><strong>{f.flight_number}</strong> {f.origin} → {f.destination}</div>
             <div>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
@@ -199,9 +229,6 @@ export default function CompanyDashboard() {
               <button onClick={() => startEdit(f)} disabled={editingId===f.id}>Edit</button>
               <button onClick={() => deleteFlight(f.id)} disabled={deleting[f.id]}> {deleting[f.id] ? '...' : 'Delete'} </button>
             </div>
-            <button onClick={() => togglePassengers(f.id)} style={{ marginTop:6 }}>
-              {passengers[f.id] ? 'Скрыть пассажиров' : 'Пассажиры'}
-            </button>
             {loadingPassengers[f.id] && <div>Загрузка списка...</div>}
             {passengers[f.id] && !loadingPassengers[f.id] && (
               <ul style={{ marginTop:6 }}>
@@ -213,13 +240,13 @@ export default function CompanyDashboard() {
             )}
             {editingId===f.id && editForm && (
               <form onSubmit={saveEdit} style={{ marginTop:10, display:'grid', gap:6, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
-                <input value={editForm.flight_number} onChange={e=>setEditForm((o:any)=>({...o, flight_number:e.target.value}))} required />
-                <input value={editForm.origin} onChange={e=>setEditForm((o:any)=>({...o, origin:e.target.value}))} required />
-                <input value={editForm.destination} onChange={e=>setEditForm((o:any)=>({...o, destination:e.target.value}))} required />
-                <input type='datetime-local' value={editForm.departure} onChange={e=>setEditForm((o:any)=>({...o, departure:e.target.value}))} required />
-                <input type='datetime-local' value={editForm.arrival} onChange={e=>setEditForm((o:any)=>({...o, arrival:e.target.value}))} required />
-                <input type='number' value={editForm.price} min={0} onChange={e=>setEditForm((o:any)=>({...o, price:e.target.value}))} required />
-                <input type='number' value={editForm.seats_total} min={1} onChange={e=>setEditForm((o:any)=>({...o, seats_total:e.target.value}))} required />
+                <input value={editForm.flight_number} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, flight_number:e.target.value}))} required />
+                <input value={editForm.origin} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, origin:e.target.value}))} required />
+                <input value={editForm.destination} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, destination:e.target.value}))} required />
+                <input type='datetime-local' value={editForm.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, departure:e.target.value}))} required />
+                <input type='datetime-local' value={editForm.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, arrival:e.target.value}))} required />
+                <input type='number' value={editForm.price} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, price:e.target.value}))} required />
+                <input type='number' value={editForm.seats_total} min={1} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_total:e.target.value}))} required />
                 <div style={{ display:'flex', gap:8 }}>
                   <button type='submit' disabled={savingEdit}>{savingEdit?'...':'Save'}</button>
                   <button type='button' onClick={cancelEdit}>Cancel</button>

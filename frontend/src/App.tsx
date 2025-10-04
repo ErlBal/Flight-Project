@@ -31,7 +31,10 @@ export default function App() {
         {isAdmin && <Link to="/admin">Admin</Link>}
         <span style={{ marginLeft: 'auto', display:'flex', gap:12, alignItems:'center' }}>
           {!email && <><Link to="/login">Login</Link><Link to="/register">Sign up</Link></>}
-          {email && <span style={{ fontSize:12, opacity:.8 }}>{email}</span>}
+          {email && <>
+            <span style={{ fontSize:12, opacity:.8 }}>{email}</span>
+            <button onClick={()=>{ localStorage.removeItem('auth_token'); location.href='/login' }} style={{ padding:'4px 10px' }}>Logout</button>
+          </>}
         </span>
       </nav>
       <div style={{ padding: 16 }}>

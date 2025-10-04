@@ -3,7 +3,7 @@ import api, { extractErrorMessage } from '../lib/api'
 
 type AdminUser = { id: number; email: string; full_name: string; role: string; is_active: boolean }
 
-type Tab = 'users' | 'managers' | 'stats' | 'banners'
+type Tab = 'users' | 'companies' | 'stats' | 'banners'
 
 type Company = { id: number; name: string; is_active: boolean }
 
@@ -13,7 +13,7 @@ export default function AdminPanel() {
     <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
       <h2>Admin Panel</h2>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {(['users','managers','stats','banners'] as Tab[]).map(t => (
+  {(['users','companies','stats','banners'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding:'6px 12px',
             border: '1px solid ' + (tab===t?'#444':'#bbb'),
@@ -21,11 +21,11 @@ export default function AdminPanel() {
             color: tab===t? '#fff':'#222',
             borderRadius:4,
             cursor:'pointer'
-          }}>{t === 'managers' ? 'managers' : t}</button>
+          }}>{t}</button>
         ))}
       </div>
       {tab === 'users' && <UsersSection />}
-      {tab === 'managers' && <CompaniesSection />}
+  {tab === 'companies' && <CompaniesSection />}
       {tab === 'stats' && <StatsSection />}
       {tab === 'banners' && <BannersSection />}
     </div>
@@ -175,7 +175,7 @@ function CompaniesSection() {
 
   return (
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
-  <h3 style={{ marginTop:0 }}>Managers (Companies)</h3>
+  <h3 style={{ marginTop:0 }}>Companies</h3>
       <form onSubmit={createCompany} style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
         <input placeholder='New company name' value={newName} onChange={e => setNewName(e.target.value)} required />
         <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>

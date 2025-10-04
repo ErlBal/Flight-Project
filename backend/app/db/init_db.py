@@ -36,18 +36,19 @@ def seed_demo_data():
             db.commit()
             db.refresh(demo_company)
 
-        if db.query(Flight).count() == 0:
-            now = datetime.utcnow()
-            flights = [
-                Flight(airline="DemoAir", flight_number="DA101", origin="ALA", destination="NQZ",
-                       departure=now + timedelta(days=1), arrival=now + timedelta(days=1, hours=1, minutes=30),
-                       price=39.00, seats_total=180, seats_available=120, company_id=demo_company.id),
-                Flight(airline="DemoAir", flight_number="DA202", origin="ALA", destination="DXB",
-                       departure=now + timedelta(days=2), arrival=now + timedelta(days=2, hours=4, minutes=30),
-                       price=129.00, seats_total=200, seats_available=150, company_id=demo_company.id),
-            ]
-            db.add_all(flights)
-            db.commit()
+     # Demo flights удалены по запросу. Оставляем блок закомментированным для возможного будущего использования.
+     # if db.query(Flight).count() == 0:
+     #     now = datetime.utcnow()
+     #     flights = [
+     #         Flight(airline="DemoAir", flight_number="DA101", origin="ALA", destination="NQZ",
+     #                departure=now + timedelta(days=1), arrival=now + timedelta(days=1, hours=1, minutes=30),
+     #                price=39.00, seats_total=180, seats_available=120, company_id=demo_company.id),
+     #         Flight(airline="DemoAir", flight_number="DA202", origin="ALA", destination="DXB",
+     #                departure=now + timedelta(days=2), arrival=now + timedelta(days=2, hours=4, minutes=30),
+     #                price=129.00, seats_total=200, seats_available=150, company_id=demo_company.id),
+     #     ]
+     #     db.add_all(flights)
+     #     db.commit()
 
         # Seed default admin and manager (idempotent)
         admin_email = (settings.seed_admin_email or "admin@example.com").lower()
