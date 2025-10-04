@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [searchDate, setSearchDate] = useState<string>("")
   const [searchPassengers, setSearchPassengers] = useState<number | ''>('')
   const [searchLoading, setSearchLoading] = useState(false)
+  const [buying, setBuying] = useState<Record<number, boolean>>({})
 
   const loadTickets = async () => {
     setLoading(true)
@@ -76,6 +77,8 @@ export default function Dashboard() {
   }
 
   const buy = async (flightId: number) => {
+    if (buying[flightId]) return
+    setBuying((b: Record<number, boolean>) => ({ ...b, [flightId]: true }))
     try {
       const quantity = quantities[flightId] || 1
       const res = await api.post('/tickets', { flight_id: flightId, quantity })
@@ -86,8 +89,13 @@ export default function Dashboard() {
       } else {
         setToast('Ticket purchased')
       }
+      // reset quantity back to 1
+  setQuantities((q: Record<number, number>) => ({ ...q, [flightId]: 1 }))
     } catch (err: any) {
       alert(extractErrorMessage(err?.response?.data) || 'Purchase failed')
+    }
+    finally {
+  setBuying((b: Record<number, boolean>) => ({ ...b, [flightId]: false }))
     }
   }
 
@@ -117,7 +125,19 @@ export default function Dashboard() {
       <h2>My Tickets</h2>
       {userInfo && (
         <div style={{ background:'#f6f6f6', padding:8, marginBottom:12, fontSize:14 }}>
-          User: <strong>{userInfo.email}</strong> | Roles: {userInfo.roles.join(', ') || '—'}
+          {(() => {
+            const isPriv = userInfo.roles.includes('admin') || userInfo.roles.includes('company_manager')
+            const email = userInfo.email
+            const masked = (() => {
+              if (!isPriv) return email
+              const [local, domain] = email.split('@')
+              if (!domain) return email
+              const show = local.slice(0, 2)
+              return `${show}${'*'.repeat(Math.max(1, local.length - 2))}@${domain}`
+            })()
+            const rolesLabel = isPriv ? 'privileged' : (userInfo.roles.join(', ') || '—')
+            return <>User: <strong>{masked}</strong> | Roles: {rolesLabel}</>
+          })()}
           <button style={{ marginLeft:12 }} onClick={() => { localStorage.removeItem('auth_token'); location.href = '/login' }}>Logout</button>
         </div>
       )}
@@ -154,7 +174,9 @@ export default function Dashboard() {
                 style={{ width:60 }}
                 disabled={f.seats_available <= 0}
               />
-              <button disabled={f.seats_available <= 0} onClick={() => buy(f.id)}>Buy</button>
+              <button disabled={f.seats_available <= 0 || buying[f.id]} onClick={() => buy(f.id)}>
+                {buying[f.id] ? '...' : 'Buy'}
+              </button>
             </div>
           </li>
         ))}

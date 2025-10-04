@@ -20,10 +20,7 @@ services:
     environment:
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/flightdb
       - ENV=dev
-      - SEED_ADMIN_EMAIL=admin@example.com
-      - SEED_ADMIN_PASSWORD=Admin1234!
-      - SEED_MANAGER_EMAIL=manager@example.com
-      - SEED_MANAGER_PASSWORD=Manager1234!
+      # SEED_* берутся из env_file (.env.example -> скопируй в .env и измени пароли в реальной среде)
     depends_on:
       - db
     ports:
