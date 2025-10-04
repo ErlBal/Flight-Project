@@ -26,7 +26,8 @@ export default function AdminPanel() {
       </div>
       {tab === 'users' && <UsersSection />}
       {tab === 'companies' && <CompaniesSection />}
-      {tab !== 'users' && tab !== 'companies' && (
+      {tab === 'stats' && <StatsSection />}
+      {tab === 'banners' && (
         <div style={{ opacity:.7, fontSize:14 }}>Раздел "{tab}" ещё не реализован — следующий шаг.</div>
       )}
     </div>
@@ -228,6 +229,67 @@ function CompaniesSection() {
       <div style={{ marginTop:10, display:'flex', gap:8 }}>
         <button onClick={load} disabled={loading}>Reload</button>
       </div>
+    </div>
+  )
+}
+
+function StatsSection() {
+  const [range, setRange] = useState<'all'|'today'|'week'|'month'>('all')
+  const [data, setData] = useState<any | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [refreshTick, setRefreshTick] = useState(0)
+
+  useEffect(() => { load() }, [range, refreshTick])
+
+  const load = async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await api.get('/admin/stats', { params: { range } })
+      setData(r.data)
+    } catch(e:any){
+      setError(extractErrorMessage(e?.response?.data) || 'Failed to load stats')
+    } finally { setLoading(false) }
+  }
+
+  const metrics: Array<{key:string; label:string; format?:(v:any)=>string}> = [
+    { key:'users', label:'Users' },
+    { key:'companies', label:'Companies' },
+    { key:'flights', label:'Flights' },
+    { key:'active_flights', label:'Active Flights' },
+    { key:'completed_flights', label:'Completed Flights' },
+    { key:'passengers', label:'Passengers (paid tickets)' },
+    { key:'seats_capacity', label:'Seats Capacity' },
+    { key:'seats_sold', label:'Seats Sold' },
+    { key:'load_factor', label:'Load Factor', format: v => (v*100).toFixed(1)+'%' },
+    { key:'revenue', label:'Revenue', format: v => '$'+Number(v).toFixed(2) },
+  ]
+
+  return (
+    <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
+      <h3 style={{ marginTop:0 }}>Service Statistics</h3>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+        {(['all','today','week','month'] as const).map(r => (
+          <button key={r} onClick={() => setRange(r)} style={{
+            padding:'4px 10px',
+            border:'1px solid '+(range===r?'#444':'#bbb'),
+            background: range===r?'#444':'#f7f7f7', color: range===r?'#fff':'#222', borderRadius:4
+          }}>{r}</button>
+        ))}
+        <button onClick={() => setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+      </div>
+      {loading && <p>Loading...</p>}
+      {error && <p style={{ color:'red' }}>{error}</p>}
+      {!loading && !error && data && (
+        <div style={{ display:'grid', gap:12, gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))' }}>
+          {metrics.map(m => (
+            <div key={m.key} style={{ border:'1px solid #eee', padding:10, borderRadius:4, background:'#fafafa' }}>
+              <div style={{ fontSize:12, opacity:.7 }}>{m.label}</div>
+              <div style={{ fontSize:20, fontWeight:600 }}>{m.format? m.format(data[m.key]) : (data[m.key] ?? '—')}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
