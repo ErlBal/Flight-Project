@@ -5,10 +5,13 @@ const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 const api = axios.create({ baseURL })
 
 api.interceptors.request.use((config: AxiosRequestConfig) => {
+	const url = config.url || ''
+	// не добавляем токен на эндпоинты логина/регистрации
+	if (/\/auth\/(login|login-json|register)/.test(url)) return config
 	const token = localStorage.getItem('auth_token')
 	if (token) {
 		config.headers = config.headers || {}
-		config.headers['Authorization'] = `Bearer ${token}`
+		;(config.headers as any)['Authorization'] = `Bearer ${token}`
 	}
 	return config
 })

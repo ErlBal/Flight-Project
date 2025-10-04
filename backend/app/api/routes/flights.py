@@ -16,6 +16,8 @@ def list_flights(
     airline: str | None = None,
     min_price: float | None = Query(None, ge=0),
     max_price: float | None = Query(None, ge=0),
+    date: str | None = Query(None, description="Flight departure date YYYY-MM-DD"),
+    passengers: int | None = Query(None, ge=1, description="Required seats available"),
 ):
     q = db.query(Flight)
     if origin:
@@ -28,6 +30,16 @@ def list_flights(
         q = q.filter(Flight.price >= min_price)
     if max_price is not None:
         q = q.filter(Flight.price <= max_price)
+    if date:
+        try:
+            day = datetime.strptime(date, "%Y-%m-%d").date()
+            start_dt = datetime.combine(day, datetime.min.time())
+            end_dt = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+            q = q.filter(Flight.departure >= start_dt, Flight.departure <= end_dt)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid date format, expected YYYY-MM-DD")
+    if passengers is not None:
+        q = q.filter(Flight.seats_available >= passengers)
     total = q.count()
     items = q.limit(50).all()
     return {"items": [

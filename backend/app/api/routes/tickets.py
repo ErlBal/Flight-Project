@@ -1,7 +1,7 @@
 from datetime import datetime
 import random, string
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
@@ -17,28 +17,47 @@ def _gen_confirmation_id() -> str:
 
 class CreateTicketBody(BaseModel):
     flight_id: int
+    quantity: int = Field(1, ge=1, le=10, description="Number of seats to purchase (1-10)")
 
 @router.post("")
 @router.post("/")
 def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    """Purchase one or multiple tickets for a flight.
+
+    Backward compatibility: if quantity == 1, response contains both
+    confirmation_id (single) and confirmation_ids (array of length 1).
+    """
     email, _roles = identity
     flight_id = payload.flight_id
+    qty = payload.quantity or 1
     flight = db.get(Flight, flight_id)
-    if not flight or flight.seats_available <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Flight unavailable")
-    flight.seats_available -= 1
-    t = Ticket(
-        confirmation_id=_gen_confirmation_id(),
-        user_email=email.lower(),
-        flight_id=flight_id,
-        status="paid",
-        purchased_at=datetime.utcnow(),
-        price_paid=flight.price,
-    )
-    db.add(t)
+    if not flight:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Flight not found")
+    if flight.seats_available < qty:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough seats available")
+
+    confirmations = []
+    # decrement seats first to reduce race window (still not fully safe without row lock)
+    flight.seats_available -= qty
+    now = datetime.utcnow()
+    for _ in range(qty):
+        t = Ticket(
+            confirmation_id=_gen_confirmation_id(),
+            user_email=email.lower(),
+            flight_id=flight_id,
+            status="paid",
+            purchased_at=now,
+            price_paid=flight.price,
+        )
+        db.add(t)
+        confirmations.append(t)
     db.commit()
-    db.refresh(t)
-    return {"confirmation_id": t.confirmation_id}
+    # refresh only first (IDs already available); generate list of confirmation ids
+    confirmation_ids = [t.confirmation_id for t in confirmations]
+    resp = {"confirmation_ids": confirmation_ids, "quantity": qty}
+    if qty == 1:
+        resp["confirmation_id"] = confirmation_ids[0]
+    return resp
 
 @router.get("/my")
 def my_tickets(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
@@ -78,10 +97,12 @@ def cancel_ticket(confirmation_id: str, db: Session = Depends(get_db)):
     if not f:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid flight")
     now = datetime.utcnow()
-    if f.departure - now >= timedelta(hours=24):
-        t.status = "refunded"
+    time_left = f.departure - now
+    if time_left < timedelta(hours=24):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cancellation not allowed (<24h to departure)")
+    # разрешено отменить -> возврат места и статус refunded
+    if t.status == "paid":
         f.seats_available += 1
-    else:
-        t.status = "canceled"
+    t.status = "refunded"
     db.commit()
     return {"status": t.status}

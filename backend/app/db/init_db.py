@@ -50,9 +50,9 @@ def seed_demo_data():
             db.commit()
 
         # Seed default admin and manager (idempotent)
-        admin_email = (settings.seed_admin_email or "admin@demo.local").lower()
+        admin_email = (settings.seed_admin_email or "admin@example.com").lower()
         admin_pwd = settings.seed_admin_password or "Admin1234!"
-        manager_email = (settings.seed_manager_email or "manager@demo.local").lower()
+        manager_email = (settings.seed_manager_email or "manager@example.com").lower()
         manager_pwd = settings.seed_manager_password or "Manager1234!"
 
         from app.core.security import get_password_hash
