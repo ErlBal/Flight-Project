@@ -18,6 +18,7 @@ export default function App() {
   const { roles, email } = useAuthInfo()
   const isManager = roles.includes('company_manager')
   const isAdmin = roles.includes('admin')
+  const canSeeCompany = isManager || isAdmin
   const loc = useLocation()
 
   return (
@@ -26,7 +27,7 @@ export default function App() {
         <Link to="/">Home</Link>
         <Link to="/search">Search</Link>
         <Link to="/dashboard">My Tickets</Link>
-        {isManager && <Link to="/company">Company</Link>}
+  {canSeeCompany && <Link to="/company">Company</Link>}
         {isAdmin && <Link to="/admin">Admin</Link>}
         <span style={{ marginLeft: 'auto', display:'flex', gap:12, alignItems:'center' }}>
           {!email && <><Link to="/login">Login</Link><Link to="/register">Sign up</Link></>}

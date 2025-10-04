@@ -154,13 +154,19 @@ def company_stats(range: str = "all", db: Session = Depends(get_db), identity=De
     email, _roles = identity
     company_id = _get_manager_company_id(db, email)
     if not company_id:
-        return {"flights": 0, "active": 0, "completed": 0, "passengers": 0, "revenue": 0.0}
+        return {"flights": 0, "active": 0, "completed": 0, "passengers": 0, "revenue": 0.0, "seats_capacity": 0, "seats_sold": 0, "load_factor": 0.0}
     start, end = _time_range(range)
 
     fq = db.query(Flight).filter(Flight.company_id == company_id)
     if start and end:
         fq = fq.filter(Flight.departure >= start, Flight.departure < end)
     flights_total = fq.count()
+
+    # Seats capacity for flights in selected range
+    seats_capacity = db.query(func.coalesce(func.sum(Flight.seats_total), 0)).filter(Flight.company_id == company_id)
+    if start and end:
+        seats_capacity = seats_capacity.filter(Flight.departure >= start, Flight.departure < end)
+    seats_capacity = seats_capacity.scalar() or 0
 
     now = datetime.utcnow()
     active = db.query(Flight).filter(Flight.company_id == company_id, Flight.departure > now).count()
@@ -174,4 +180,10 @@ def company_stats(range: str = "all", db: Session = Depends(get_db), identity=De
     if start and end:
         revenue = revenue.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
     revenue = revenue.scalar() or 0
-    return {"flights": flights_total, "active": active, "completed": completed, "passengers": passengers, "revenue": float(revenue)}
+    # Seats sold (paid tickets) in selected range
+    seats_sold_q = db.query(func.count(Ticket.id)).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id == company_id, Ticket.status == "paid")
+    if start and end:
+        seats_sold_q = seats_sold_q.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
+    seats_sold = seats_sold_q.scalar() or 0
+    load_factor = float(seats_sold) / float(seats_capacity) if seats_capacity else 0.0
+    return {"flights": flights_total, "active": active, "completed": completed, "passengers": passengers, "revenue": float(revenue), "seats_capacity": int(seats_capacity), "seats_sold": int(seats_sold), "load_factor": load_factor}

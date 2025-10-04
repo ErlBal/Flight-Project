@@ -58,21 +58,38 @@ def service_stats(range: str = "all", db: Session = Depends(get_db)):
         flights_q = flights_q.filter(Flight.departure >= start, Flight.departure < end)
     flights = flights_q.count()
 
-    tickets_q = db.query(Ticket)
+    now = datetime.utcnow()
+    active_flights = db.query(func.count(Flight.id)).filter(Flight.departure > now).scalar() or 0
+    completed_flights = db.query(func.count(Flight.id)).filter(Flight.departure <= now).scalar() or 0
+
+    tickets_q = db.query(Ticket).filter(Ticket.status == "paid")
     if start and end:
         tickets_q = tickets_q.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
-    tickets = tickets_q.count()
+    passengers = tickets_q.count()  # paid tickets treated as passengers
 
     sales_q = db.query(func.coalesce(func.sum(Ticket.price_paid), 0)).filter(Ticket.status == "paid")
     if start and end:
         sales_q = sales_q.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
     sales = sales_q.scalar()
+    # Seats capacity and sold for range (capacity over flights in range; sold = paid tickets in range)
+    seats_capacity_q = db.query(func.coalesce(func.sum(Flight.seats_total), 0))
+    if start and end:
+        seats_capacity_q = seats_capacity_q.filter(Flight.departure >= start, Flight.departure < end)
+    seats_capacity = seats_capacity_q.scalar() or 0
+    seats_sold = passengers
+    load_factor = float(seats_sold) / float(seats_capacity) if seats_capacity else 0.0
     return {
         "users": users,
         "companies": companies,
         "flights": flights,
-        "tickets": tickets,
-        "total_sales": float(sales or 0),
+        "active_flights": active_flights,
+        "completed_flights": completed_flights,
+        "passengers": passengers,
+        "seats_capacity": int(seats_capacity),
+        "seats_sold": int(seats_sold),
+        "load_factor": load_factor,
+        "revenue": float(sales or 0),
+        "total_sales": float(sales or 0),  # backward compatibility
     }
 
 

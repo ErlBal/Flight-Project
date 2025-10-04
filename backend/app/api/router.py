@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import health, auth, flights, tickets, company, admin, notifications
+from app.api.routes import health, auth, flights, tickets, company, admin, notifications, content
 
 api_router = APIRouter()
 api_router.include_router(health.router, prefix="/health", tags=["health"])  # GET /
@@ -10,3 +10,4 @@ api_router.include_router(tickets.router, prefix="/tickets", tags=["tickets"])  
 api_router.include_router(company.router, prefix="/company", tags=["company"])  # company manager endpoints
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])  # admin endpoints
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])  # user notifications
+api_router.include_router(content.router, prefix="/content", tags=["content"])  # public/admin content (banners)

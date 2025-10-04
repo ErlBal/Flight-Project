@@ -8,6 +8,7 @@ from sqlalchemy import text
 from app.db.session import get_db
 from app.models.ticket import Ticket
 from app.models.flight import Flight
+from app.models.notification import Notification
 from datetime import timedelta
 from app.api.deps import get_current_identity
 
@@ -92,6 +93,10 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
         )
         db.add(ticket)
         confirmations.append(ticket)
+    # Notification (one aggregated notification if multiple seats)
+    msg = f"Purchase confirmed: {qty} seat(s) on flight {flight.flight_number} {flight.origin}->{flight.destination}"
+    notif = Notification(user_email=email.lower(), type="purchase", message=msg, read=False)
+    db.add(notif)
     db.commit()
     confirmation_ids = [t.confirmation_id for t in confirmations]
     result = {"confirmation_ids": confirmation_ids, "quantity": qty}

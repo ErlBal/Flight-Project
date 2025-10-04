@@ -28,6 +28,12 @@ def list_notifications(db: Session = Depends(get_db), identity=Depends(get_curre
     items = db.query(Notification).filter(Notification.user_email == email.lower()).order_by(Notification.created_at.desc()).limit(200).all()
     return items
 
+@router.get("/unread-count", response_model=dict)
+def unread_count(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    email, _roles = identity
+    count = db.query(Notification).filter(Notification.user_email == email, Notification.read == False).count()
+    return {"unread": count}
+
 @router.post("/{notif_id}/read")
 def mark_notification(notif_id: int, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
     email, _roles = identity
