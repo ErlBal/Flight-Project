@@ -13,6 +13,10 @@ from app.api.deps import get_current_identity
 
 router = APIRouter()
 
+# In-memory throttle store { (email, flight_id): last_ts }
+_last_purchase: dict[tuple[str, int], float] = {}
+_THROTTLE_SECONDS = 2.0
+
 def _gen_confirmation_id() -> str:
     return "F" + "".join(random.choices(string.ascii_uppercase + string.digits, k=7))
 
@@ -31,6 +35,14 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
     email, _roles = identity
     flight_id = payload.flight_id
     qty = payload.quantity or 1
+    # Rate limit / double-click protection
+    import time
+    key = (email.lower(), flight_id)
+    now_ts = time.time()
+    last = _last_purchase.get(key)
+    if last and (now_ts - last) < _THROTTLE_SECONDS:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many purchase attempts, wait a moment")
+    _last_purchase[key] = now_ts
     flight = db.get(Flight, flight_id)
     if not flight:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Flight not found")
