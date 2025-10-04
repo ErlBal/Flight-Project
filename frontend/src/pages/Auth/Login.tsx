@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import api from '../../lib/api'
+import api, { extractErrorMessage } from '../../lib/api'
 import { saveToken } from '../../lib/auth'
 
 export default function Login() {
@@ -15,7 +15,7 @@ export default function Login() {
       saveToken(res.data.access_token)
       location.href = '/dashboard'
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Login failed')
+      setError(extractErrorMessage(err?.response?.data) || 'Login failed')
     }
   }
 
@@ -30,7 +30,7 @@ export default function Login() {
         <label>Password</label>
         <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
       </div>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+  {error && <p style={{ color: 'red' }}>{error}</p>}
       <button type="submit">Sign in</button>
     </form>
   )

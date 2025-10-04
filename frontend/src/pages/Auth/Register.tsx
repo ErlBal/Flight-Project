@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import api from '../../lib/api'
+import api, { extractErrorMessage } from '../../lib/api'
 
 export default function Register() {
   const [email, setEmail] = useState('')
@@ -17,7 +17,7 @@ export default function Register() {
       setOk(true)
       setTimeout(() => { location.href = '/login' }, 800)
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Registration failed')
+      setError(extractErrorMessage(err?.response?.data) || 'Registration failed')
     }
   }
 
