@@ -27,9 +27,7 @@ export default function AdminPanel() {
       {tab === 'users' && <UsersSection />}
       {tab === 'managers' && <CompaniesSection />}
       {tab === 'stats' && <StatsSection />}
-      {tab === 'banners' && (
-        <div style={{ opacity:.7, fontSize:14 }}>Раздел "{tab}" ещё не реализован — следующий шаг.</div>
-      )}
+      {tab === 'banners' && <BannersSection />}
     </div>
   )
 }
@@ -288,6 +286,139 @@ function StatsSection() {
               <div style={{ fontSize:20, fontWeight:600 }}>{m.format? m.format(data[m.key]) : (data[m.key] ?? '—')}</div>
             </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type Banner = { id:number; title:string; image_url?:string|null; link_url?:string|null; is_active:boolean; display_order?:number|null }
+
+function BannersSection() {
+  const [banners, setBanners] = useState<Banner[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string|null>(null)
+  const [refreshTick, setRefreshTick] = useState(0)
+  const [creating, setCreating] = useState(false)
+  const [editingId, setEditingId] = useState<number|null>(null)
+  const [form, setForm] = useState({ title:'', image_url:'', link_url:'', is_active:true, display_order:'' })
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<Record<number, boolean>>({})
+
+  useEffect(()=>{ load() }, [refreshTick])
+
+  const load = async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await api.get('/content/banners/admin')
+      setBanners(r.data || [])
+    } catch(e:any){
+      setError(extractErrorMessage(e?.response?.data) || 'Не удалось загрузить баннеры')
+    } finally { setLoading(false) }
+  }
+
+  const startCreate = () => { setEditingId(null); setForm({ title:'', image_url:'', link_url:'', is_active:true, display_order:'' }); setCreating(true) }
+  const startEdit = (b:Banner) => {
+    setEditingId(b.id); setForm({ title:b.title||'', image_url:b.image_url||'', link_url:b.link_url||'', is_active: b.is_active, display_order: b.display_order?.toString()||'' }); setCreating(true)
+  }
+  const reset = () => { setCreating(false); setEditingId(null); setForm({ title:'', image_url:'', link_url:'', is_active:true, display_order:'' }) }
+
+  const submit = async (e:React.FormEvent) => {
+    e.preventDefault(); if(!form.title.trim()) return
+    setSaving(true)
+    try {
+      const payload:any = { title: form.title.trim(), is_active: form.is_active }
+      if (form.image_url.trim()) payload.image_url = form.image_url.trim()
+      if (form.link_url.trim()) payload.link_url = form.link_url.trim()
+      if (form.display_order.trim()) payload.display_order = Number(form.display_order)
+      if (editingId) {
+        await api.put(`/content/banners/${editingId}`, payload)
+      } else {
+        await api.post('/content/banners', payload)
+      }
+      reset(); setRefreshTick(x=>x+1)
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Сохранение не удалось')
+    } finally { setSaving(false) }
+  }
+
+  const toggleActive = async (b:Banner) => {
+    try {
+      await api.put(`/content/banners/${b.id}`, { is_active: !b.is_active })
+      setRefreshTick(x=>x+1)
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Ошибка переключения')
+    }
+  }
+
+  const remove = async (b:Banner) => {
+    if(!confirm('Удалить баннер?')) return
+    setDeleting(d=>({ ...d, [b.id]: true }))
+    try {
+      await api.delete(`/content/banners/${b.id}`)
+      setRefreshTick(x=>x+1)
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Удаление не удалось')
+    } finally { setDeleting(d=>({ ...d, [b.id]: false })) }
+  }
+
+  return (
+    <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
+      <h3 style={{ marginTop:0 }}>Banners</h3>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+        {!creating && <button onClick={startCreate}>New banner</button>}
+        {creating && <button onClick={reset} type='button'>Cancel</button>}
+      </div>
+      {creating && (
+        <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20, maxWidth:520 }}>
+          <input placeholder='Title *' value={form.title} onChange={e=>setForm(f=>({ ...f, title:e.target.value }))} required />
+          <input placeholder='Image URL' value={form.image_url} onChange={e=>setForm(f=>({ ...f, image_url:e.target.value }))} />
+          <input placeholder='Link URL' value={form.link_url} onChange={e=>setForm(f=>({ ...f, link_url:e.target.value }))} />
+          <input placeholder='Display order (число)' value={form.display_order} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, display_order:v })) }} />
+          <label style={{ display:'flex', gap:6, fontSize:14 }}>
+            <input type='checkbox' checked={form.is_active} onChange={e=>setForm(f=>({ ...f, is_active:e.target.checked }))} /> Active
+          </label>
+          <div style={{ display:'flex', gap:8 }}>
+            <button type='submit' disabled={saving}>{saving? '...' : (editingId? 'Update' : 'Create')}</button>
+          </div>
+        </form>
+      )}
+      {loading && <p>Загрузка...</p>}
+      {error && <p style={{ color:'red' }}>{error}</p>}
+      {!loading && !error && banners.length===0 && <p>Нет баннеров.</p>}
+      {!loading && !error && banners.length>0 && (
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:14 }}>
+            <thead>
+              <tr style={{ textAlign:'left', background:'#fafafa' }}>
+                <th style={th}>ID</th>
+                <th style={th}>Title</th>
+                <th style={th}>Active</th>
+                <th style={th}>Order</th>
+                <th style={th}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {banners.sort((a,b)=> (a.display_order??0) - (b.display_order??0)).map(b => (
+                <tr key={b.id} style={{ borderTop:'1px solid #eee' }}>
+                  <td style={td}>{b.id}</td>
+                  <td style={{ ...td, maxWidth:260 }}>
+                    <div style={{ fontWeight:600 }}>{b.title}</div>
+                    {b.image_url && <div style={{ fontSize:11, opacity:.7, wordBreak:'break-all' }}>{b.image_url}</div>}
+                    {b.link_url && <div style={{ fontSize:11, opacity:.7, wordBreak:'break-all' }}>{b.link_url}</div>}
+                  </td>
+                  <td style={td}>{b.is_active? 'Yes':'No'}</td>
+                  <td style={td}>{b.display_order ?? ''}</td>
+                  <td style={{ ...td, display:'flex', gap:6, flexWrap:'wrap' }}>
+                    <button type='button' onClick={()=>startEdit(b)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
+                    <button type='button' onClick={()=>toggleActive(b)} style={{ padding:'4px 8px', fontSize:12 }}>{b.is_active? 'Deactivate':'Activate'}</button>
+                    <button type='button' disabled={deleting[b.id]} onClick={()=>remove(b)} style={{ padding:'4px 8px', fontSize:12 }}>{deleting[b.id]? '...':'Delete'}</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
