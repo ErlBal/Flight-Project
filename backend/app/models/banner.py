@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
-from app.db.base_class import Base
+# Use the same Base as other models (previous wrong path caused ImportError and app startup failure)
+from app.models.base import Base
 
 class Banner(Base):
     __tablename__ = "banners"

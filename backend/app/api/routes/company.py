@@ -128,6 +128,8 @@ def list_passengers(flight_id: int, db: Session = Depends(get_db), identity=Depe
         {
             "confirmation_id": t.confirmation_id,
             "purchased_at": t.purchased_at.isoformat() if t.purchased_at else None,
+            "user_email": t.user_email,
+            "status": t.status,
         }
         for t in tickets
     ]
