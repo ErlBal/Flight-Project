@@ -138,11 +138,14 @@ def cancel_ticket(confirmation_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid flight")
     now = datetime.utcnow()
     time_left = f.departure - now
+    if t.status not in ("paid",):
+        return {"status": t.status}
     if time_left < timedelta(hours=24):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cancellation not allowed (<24h to departure)")
-    # разрешено отменить -> возврат места и статус refunded
-    if t.status == "paid":
+        # late cancellation: mark canceled (no seat return)
+        t.status = "canceled"
+    else:
+        # early cancellation: refund & return seat
         f.seats_available += 1
-    t.status = "refunded"
+        t.status = "refunded"
     db.commit()
     return {"status": t.status}
