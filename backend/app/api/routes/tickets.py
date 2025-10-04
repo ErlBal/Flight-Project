@@ -3,6 +3,7 @@ import random, string
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from app.db.session import get_db
 from app.models.ticket import Ticket
@@ -33,31 +34,58 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
     flight = db.get(Flight, flight_id)
     if not flight:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Flight not found")
-    if flight.seats_available < qty:
+
+    # Попытка атомарного списания мест (Postgres). Для SQLite fallback: просто проверка + обновление в объекте.
+    dialect_name = db.bind.dialect.name if db.bind else ""
+    updated = 0
+    if dialect_name.startswith("postgres"):
+        # Используем SQL для атомарного условия
+        upd = db.execute(
+            text("""
+                UPDATE flights
+                SET seats_available = seats_available - :qty
+                WHERE id = :fid AND seats_available >= :qty
+                RETURNING seats_available
+            """),
+            {"qty": qty, "fid": flight_id},
+        )
+        row = upd.fetchone()
+        if row is not None:
+            updated = 1
+    else:
+        # Fallback (не атомарно для конкурентных запросов, но работает для dev SQLite)
+        if flight.seats_available >= qty:
+            flight.seats_available -= qty
+            updated = 1
+
+    if not updated:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough seats available")
 
+    # Нужны актуальные данные цены -> если мы делали raw UPDATE в Postgres, у нас объект flight в сессии может быть устаревшим
+    if dialect_name.startswith("postgres"):
+        db.refresh(flight)
+
     confirmations = []
-    # decrement seats first to reduce race window (still not fully safe without row lock)
-    flight.seats_available -= qty
     now = datetime.utcnow()
+    price_snapshot = flight.price
     for _ in range(qty):
-        t = Ticket(
+        ticket = Ticket(
             confirmation_id=_gen_confirmation_id(),
             user_email=email.lower(),
             flight_id=flight_id,
             status="paid",
             purchased_at=now,
-            price_paid=flight.price,
+            price_paid=price_snapshot,
         )
-        db.add(t)
-        confirmations.append(t)
+        db.add(ticket)
+        confirmations.append(ticket)
     db.commit()
-    # refresh only first (IDs already available); generate list of confirmation ids
     confirmation_ids = [t.confirmation_id for t in confirmations]
-    resp = {"confirmation_ids": confirmation_ids, "quantity": qty}
+    result = {"confirmation_ids": confirmation_ids, "quantity": qty}
     if qty == 1:
-        resp["confirmation_id"] = confirmation_ids[0]
-    return resp
+        result["confirmation_id"] = confirmation_ids[0]
+    return result
 
 @router.get("/my")
 def my_tickets(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
