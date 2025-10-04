@@ -18,6 +18,10 @@ def list_flights(
     max_price: float | None = Query(None, ge=0),
     date: str | None = Query(None, description="Flight departure date YYYY-MM-DD"),
     passengers: int | None = Query(None, ge=1, description="Required seats available"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    sort_by: str = Query("departure", pattern="^(price|departure)$"),
+    sort_dir: str = Query("asc", pattern="^(asc|desc)$"),
 ):
     q = db.query(Flight)
     if origin:
@@ -41,7 +45,16 @@ def list_flights(
     if passengers is not None:
         q = q.filter(Flight.seats_available >= passengers)
     total = q.count()
-    items = q.limit(50).all()
+    # sorting
+    if sort_by == "price":
+        order_col = Flight.price
+    else:
+        order_col = Flight.departure
+    if sort_dir == "desc":
+        order_col = order_col.desc()
+    q = q.order_by(order_col)
+    offset = (page - 1) * page_size
+    items = q.offset(offset).limit(page_size).all()
     return {"items": [
         {
             "id": f.id,
@@ -54,7 +67,7 @@ def list_flights(
             "price": float(f.price),
             "seats_available": f.seats_available,
         } for f in items
-    ], "total": total}
+    ], "total": total, "page": page, "page_size": page_size}
 
 @router.get("/{flight_id}")
 def flight_detail(flight_id: int, db: Session = Depends(get_db)):
