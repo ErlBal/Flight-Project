@@ -8,6 +8,7 @@ from app.models.flight import Flight
 from app.models.company import Company
 from app.models.user import User
 from app.models.ticket import Ticket
+from app.models.notification import Notification
 from app.models.company_manager import CompanyManager
 from sqlalchemy import func
 from datetime import datetime, timedelta
@@ -93,11 +94,61 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="Flight not found")
     if company_id and f.company_id and f.company_id != company_id:
         raise HTTPException(status_code=403, detail="Not your company flight")
-    for key in ["airline", "flight_number", "origin", "destination", "departure", "arrival", "price", "seats_total", "seats_available"]:
-        if key in payload:
+    # 1. нельзя редактировать прошлый рейс
+    now = datetime.utcnow()
+    if f.departure <= now:
+        raise HTTPException(status_code=400, detail="Past flight cannot be edited")
+
+    # Определим проданные билеты (paid)
+    sold = db.query(func.count(Ticket.id)).filter(Ticket.flight_id == f.id, Ticket.status == "paid").scalar() or 0
+
+    # Правило: seats_total нельзя уменьшить ниже sold
+    new_seats_total = payload.get("seats_total", f.seats_total)
+    if new_seats_total < sold:
+        raise HTTPException(status_code=400, detail="seats_total cannot be less than already sold seats")
+
+    changed_fields = {}
+    editable_keys = ["airline", "flight_number", "origin", "destination", "departure", "arrival", "price", "seats_total"]
+    for key in editable_keys:
+        if key in payload and getattr(f, key) != payload[key]:
+            changed_fields[key] = {"old": getattr(f, key), "new": payload[key]}
             setattr(f, key, payload[key])
+
+    # seats_available коррекция если seats_total уменьшено / изменено
+    if "seats_total" in changed_fields:
+        f.seats_available = max(0, f.seats_total - sold)
+
+    # Ограничение: price можно менять только для будущего рейса (мы уже гарантировали f.departure > now)
+    # seats_available прямой установкой через payload запрещаем (игнорируем), расчет автоматический выше
+
     db.commit()
-    return {"status": "ok"}
+
+    # Если есть изменения — создать уведомления пользователям с paid билетами
+    if changed_fields:
+        tickets_paid = db.query(Ticket).filter(Ticket.flight_id == f.id, Ticket.status == "paid").all()
+        if tickets_paid:
+            # Сформируем краткое описание изменений
+            def fmt_val(v):
+                if hasattr(v, 'isoformat'):
+                    try:
+                        return v.isoformat()
+                    except:  # noqa
+                        return str(v)
+                return str(v)
+            summary_parts = []
+            for k, diff in changed_fields.items():
+                summary_parts.append(f"{k}: {fmt_val(diff['old'])} -> {fmt_val(diff['new'])}")
+            summary = ", ".join(summary_parts)[:900]
+            for t in tickets_paid:
+                n = Notification(
+                    user_email=t.user_email,
+                    type="flight_update",
+                    message=f"Ваш рейс {f.flight_number} обновлён: {summary}"
+                )
+                db.add(n)
+            db.commit()
+
+    return {"status": "ok", "changed": list(changed_fields.keys())}
 
 
 @router.delete("/flights/{flight_id}", response_model=dict)
@@ -109,9 +160,25 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
         raise HTTPException(status_code=404, detail="Flight not found")
     if company_id and f.company_id and f.company_id != company_id:
         raise HTTPException(status_code=403, detail="Not your company flight")
+    now = datetime.utcnow()
+    if f.departure <= now:
+        raise HTTPException(status_code=400, detail="Past flight cannot be deleted")
+
+    # Найти все оплаченные билеты и сделать refund + уведомления
+    tickets_paid = db.query(Ticket).filter(Ticket.flight_id == f.id, Ticket.status == "paid").all()
+    refund_count = 0
+    for t in tickets_paid:
+        t.status = "refunded"
+        refund_count += 1
+        db.add(Notification(
+            user_email=t.user_email,
+            type="flight_cancel",
+            message=f"Ваш рейс {f.flight_number} отменён. Билет {t.confirmation_id} возвращён (refund)."
+        ))
+
     db.delete(f)
     db.commit()
-    return {"status": "deleted"}
+    return {"status": "deleted", "refunded_tickets": refund_count}
 
 
 @router.get("/flights/{flight_id}/passengers", response_model=List[dict])
