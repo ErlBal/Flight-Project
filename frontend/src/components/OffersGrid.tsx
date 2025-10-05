@@ -118,23 +118,25 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
 
 const gridStyle: React.CSSProperties = {
   display:'grid',
-  gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))',
-  gap:10,
-  marginTop:8
+  gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))',
+  gap:12,
+  marginTop:8,
+  alignItems:'start'
 }
 
 const cardStyle: React.CSSProperties = {
   background:'#fff',
   border:'1px solid #e2e8f0',
-  padding:'8px 10px 10px',
-  borderRadius:8,
+  padding:'6px 8px 8px',
+  borderRadius:10,
   fontSize:12.5,
-  boxShadow:'0 1px 2px rgba(0,0,0,0.05)',
+  boxShadow:'0 1px 2px rgba(0,0,0,0.04)',
   display:'flex',
   flexDirection:'column',
   gap:4,
-  minHeight:90,
-  lineHeight:1.25
+  lineHeight:1.25,
+  width:'100%',
+  height:'auto'
 }
 
 const subtitleStyle: React.CSSProperties = {

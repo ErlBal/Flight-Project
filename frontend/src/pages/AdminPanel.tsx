@@ -608,11 +608,20 @@ function OffersSection() {
       const payload:any = { title: form.title.trim(), is_active: form.is_active }
       if(form.subtitle.trim()) payload.subtitle = form.subtitle.trim()
       if(form.price_from.trim()) payload.price_from = Number(form.price_from)
-      if(form.flight_ref.trim()) payload.flight_ref = form.flight_ref.trim().toUpperCase()
-      if(form.position.trim()) payload.position = Number(form.position)
-      if(form.tag) payload.tag = form.tag
       if(form.mode) payload.mode = form.mode
       if(form.mode === 'info' && form.description.trim()) payload.description = form.description.trim()
+      if(form.mode === 'interactive') {
+        const o=form._origin?.length===3?form._origin:''
+        const d=form._destination?.length===3?form._destination:''
+        const dt=form._date || ''
+        let composed = ''
+        if(o && d && dt) composed = `${o}-${d}@${dt}`
+        else if(o && d) composed = `${o}-${d}`
+        else if(o) composed = o
+        if(composed) payload.flight_ref = composed
+      } else if(form.flight_ref.trim()) {
+        payload.flight_ref = form.flight_ref.trim().toUpperCase()
+      }
       if(editingId) await api.put(`/content/admin/offers/${editingId}`, payload)
       else await api.post('/content/admin/offers', payload)
       closeModal(); setRefreshTick(x=>x+1)
@@ -719,7 +728,44 @@ function OffersSection() {
               <input placeholder='Title *' value={form.title} onChange={e=>setForm((f:any)=>({ ...f, title:e.target.value }))} required />
               <input placeholder='Subtitle' value={form.subtitle} onChange={e=>setForm((f:any)=>({ ...f, subtitle:e.target.value }))} />
               <input placeholder='Price from' value={form.price_from} onChange={e=>{ const v=e.target.value; if(/^[0-9]*\.?[0-9]*$/.test(v)) setForm((f:any)=>({ ...f, price_from:v })) }} />
-              <input placeholder='Flight ref (AAA / AAA-BBB / AAA-BBB@YYYY-MM-DD)' value={form.flight_ref} onChange={e=>setForm((f:any)=>({ ...f, flight_ref:e.target.value.toUpperCase() }))} />
+              {/* Flight ref builder */}
+              {form.mode === 'interactive' && (
+                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                  <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                    <input
+                      placeholder='Origin (AAA)'
+                      value={form._origin || ''}
+                      onChange={e=>{ const v=e.target.value.toUpperCase(); setForm((f:any)=>({ ...f, _origin:v.replace(/[^A-Z]/g,'').slice(0,3) })); }}
+                      style={{ width:100 }}
+                    />
+                    <input
+                      placeholder='Destination (BBB)'
+                      value={form._destination || ''}
+                      onChange={e=>{ const v=e.target.value.toUpperCase(); setForm((f:any)=>({ ...f, _destination:v.replace(/[^A-Z]/g,'').slice(0,3) })); }}
+                      style={{ width:120 }}
+                    />
+                    <input
+                      type='date'
+                      value={form._date || ''}
+                      onChange={e=> setForm((f:any)=>({ ...f, _date:e.target.value })) }
+                    />
+                  </div>
+                  <div style={{ fontSize:11, opacity:.7 }}>
+                    Итоговая строка: {(() => {
+                      const o=form._origin?.length===3?form._origin:''
+                      const d=form._destination?.length===3?form._destination:''
+                      if(!o && !d) return '(пусто)'
+                      if(o && !d) return o
+                      if(o && d && form._date) return `${o}-${d}@${form._date}`
+                      if(o && d) return `${o}-${d}`
+                      return '(невалидно)'
+                    })()}
+                  </div>
+                </div>
+              )}
+              {form.mode !== 'interactive' && (
+                <input placeholder='Flight ref (AAA / AAA-BBB / AAA-BBB@YYYY-MM-DD)' value={form.flight_ref} onChange={e=>setForm((f:any)=>({ ...f, flight_ref:e.target.value.toUpperCase() }))} />
+              )}
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 <label style={{ fontSize:12 }}>Tag:
                   <select value={form.tag} onChange={e=>setForm((f:any)=>({ ...f, tag:e.target.value }))} style={{ marginLeft:6 }}>
