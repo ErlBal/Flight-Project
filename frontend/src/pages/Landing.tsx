@@ -52,24 +52,10 @@ export default function Landing() {
     setBuying(b => ({ ...b, [flightId]: true }))
     try {
       const quantity = quantities[flightId] || 1
-      // Оптимистичное уменьшение
-      let rollback = false
-      setFlights(fs => fs.map(f => {
-        if (f.id === flightId) {
-          if (f.seats_available >= quantity) {
-            rollback = true
-            return { ...f, seats_available: f.seats_available - quantity }
-          }
-        }
-        return f
-      }))
       const res = await api.post('/tickets', { flight_id: flightId, quantity })
       if (res.data.confirmation_ids) setToast(`Purchased ${res.data.quantity} ticket(s)`) 
       else setToast('Ticket purchased')
     } catch(e:any){
-      const quantity = quantities[flightId] || 1
-      // rollback
-      setFlights(fs => fs.map(f => f.id === flightId ? { ...f, seats_available: f.seats_available + quantity } : f))
       const msg = extractErrorMessage(e?.response?.data) || 'Purchase failed'
       if (/unauth/i.test(msg) || /auth/i.test(msg)) setAuthed(false)
       alert(msg)
