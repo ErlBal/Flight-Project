@@ -1,63 +1,56 @@
-import React, { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import React, { useState } from 'react'
 
-interface Props { onSubmit?: () => void }
+export interface SearchCriteria {
+  origin?: string
+  destination?: string
+  date?: string
+  passengers?: number
+  min_price?: number
+  max_price?: number
+  max_stops?: number
+}
 
-export const QuickSearchForm: React.FC<Props> = ({ onSubmit }) => {
-  const nav = useNavigate()
-  const loc = useLocation()
-  const sp = new URLSearchParams(loc.search)
-  const [origin, setOrigin] = useState(sp.get('origin') || '')
-  const [destination, setDestination] = useState(sp.get('destination') || '')
-  const [date, setDate] = useState(sp.get('date') || sp.get('departure_date') || '')
-  const [passengers, setPassengers] = useState<number>(Number(sp.get('passengers')||'')||1)
-  const [minPrice, setMinPrice] = useState(sp.get('min_price') || '')
-  const [maxPrice, setMaxPrice] = useState(sp.get('max_price') || '')
-  const [maxStops, setMaxStops] = useState(sp.get('max_stops') || '')
+interface Props { onSearch?: (criteria: SearchCriteria) => void }
 
-  // keep URL params reflected in fields on location change (e.g. back/forward nav)
-  useEffect(()=>{
-    const p = new URLSearchParams(loc.search)
-    setOrigin(p.get('origin') || '')
-    setDestination(p.get('destination') || '')
-    setDate(p.get('date') || p.get('departure_date') || '')
-    setPassengers(Number(p.get('passengers')||'')||1)
-    setMinPrice(p.get('min_price') || '')
-    setMaxPrice(p.get('max_price') || '')
-    setMaxStops(p.get('max_stops') || '')
-  }, [loc.search])
+export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
+  const [origin, setOrigin] = useState('')
+  const [destination, setDestination] = useState('')
+  const [date, setDate] = useState('')
+  const [passengers, setPassengers] = useState<number>(1)
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
+  const [maxStops, setMaxStops] = useState('')
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const params = new URLSearchParams()
-    if (origin) params.set('origin', origin.trim().toUpperCase())
-    if (destination) params.set('destination', destination.trim().toUpperCase())
-    if (date) params.set('date', date)
-    if (passengers) params.set('passengers', String(passengers))
-    if (minPrice) params.set('min_price', minPrice)
-    if (maxPrice) params.set('max_price', maxPrice)
-    if (maxStops) params.set('max_stops', maxStops)
-    nav(`/?${params.toString()}`)
-    onSubmit?.()
+    onSearch?.({
+      origin: origin.trim().toUpperCase() || undefined,
+      destination: destination.trim().toUpperCase() || undefined,
+      date: date || undefined,
+      passengers: passengers || undefined,
+      min_price: minPrice ? Number(minPrice) : undefined,
+      max_price: maxPrice ? Number(maxPrice) : undefined,
+      max_stops: maxStops ? Number(maxStops) : undefined,
+    })
   }
 
   return (
   <form onSubmit={handleSubmit} style={formStyle}>
       <div style={fieldCol}> 
         <label style={labelStyle}>Origin</label>
-        <input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="" style={inputStyle} />
+  <input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="" style={inputStyle} />
       </div>
       <div style={fieldCol}> 
         <label style={labelStyle}>Destination</label>
-        <input value={destination} onChange={e => setDestination(e.target.value)} placeholder="" style={inputStyle} />
+  <input value={destination} onChange={e => setDestination(e.target.value)} placeholder="" style={inputStyle} />
       </div>
       <div style={fieldCol}> 
         <label style={labelStyle}>Date</label>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+  <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
       </div>
       <div style={fieldCol}> 
         <label style={labelStyle}>Passengers</label>
-        <input type="number" min={1} value={passengers} onChange={e => setPassengers(Number(e.target.value)||1)} style={inputStyle} />
+  <input type="number" min={1} value={passengers} onChange={e => setPassengers(Number(e.target.value)||1)} style={inputStyle} />
       </div>
       <div style={fieldCol}>
         <label style={labelStyle}>Min Price</label>
