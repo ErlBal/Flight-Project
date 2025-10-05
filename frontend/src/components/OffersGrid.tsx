@@ -145,11 +145,13 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
             </div>
             {o.subtitle && <div style={subtitleStyle}>{o.subtitle}</div>}
             <div style={bottomRow}>
-              {o.price_from != null && <span style={{ fontSize:11 }}>от <strong>${o.price_from}</strong></span>}
               {!interactive && o.mode === 'info' && (
                 <span style={{ fontSize:11, color:'#0369a1' }}>i</span>
               )}
             </div>
+            {o.price_from != null && (
+              <span style={priceFixedSpan}>от <strong>${o.price_from}</strong></span>
+            )}
             {interactive && o.flight_ref && <span style={searchFixedBtn}>Поиск</span>}
             {o.mode === 'info' && o.description && hovered === o.id && (
               <div style={tooltipBox}>{o.description}</div>
@@ -241,6 +243,12 @@ const searchFixedBtn: React.CSSProperties = {
   color:'#fff',
   padding:'4px 10px',
   borderRadius:6
+}
+const priceFixedSpan: React.CSSProperties = {
+  position:'absolute',
+  bottom:10,
+  left:10,
+  fontSize:11
 }
 
 const tooltipBox: React.CSSProperties = {
