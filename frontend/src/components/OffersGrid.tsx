@@ -46,6 +46,7 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hovered, setHovered] = useState<number | null>(null)
+  const [showAll, setShowAll] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true); setError(null)
@@ -71,7 +72,7 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
     }
   }
 
-  const visibleOffers = offers.slice(0, limit || 9)
+  const visibleOffers = showAll ? offers : offers.slice(0, limit || 9)
 
   if (loading) {
     return (
@@ -94,11 +95,18 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
   if (!offers.length) return <div>Нет активных предложений</div>
 
   return (
-  <div style={gridFixed3} className='offers-grid-3'>
+	<div style={gridFixed3} className='offers-grid-3'>
       <style>{offerExtraStyles}</style>
       {visibleOffers.map((o, idx) => {
         const tagColor = o.tag ? tagColors[o.tag] : undefined
         const interactive = o.mode === 'interactive'
+        const parsed = parseFlightRef(o.flight_ref)
+        let dateLabel: string | undefined
+        if (parsed.date) {
+          const d = new Date(parsed.date)
+          if (!isNaN(d.getTime())) dateLabel = d.toLocaleDateString('ru-RU')
+          else dateLabel = parsed.date
+        }
         return (
           <div
             key={o.id}
@@ -115,30 +123,46 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
             onMouseEnter={() => setHovered(o.id)}
             onMouseLeave={() => setHovered(h => h === o.id ? null : h)}
           >
-            <div style={{ display:'flex', justifyContent:'space-between', gap:8 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', gap:8, alignItems:'flex-start' }}>
               <div style={{ fontWeight:600, fontSize:14, lineHeight:1.2 }}>{o.title}</div>
-              {o.tag && tagColor && (
-                <span style={{
-                  ...badgeBase,
-                  background: tagColor.bg,
-                  color: tagColor.color
-                }}>{o.tag.replace('_',' ')}</span>
-              )}
+              <div style={{ display:'flex', flexDirection:'column', gap:4, alignItems:'flex-end', minHeight:20 }}>
+                {(parsed.origin || parsed.destination || dateLabel) && (
+                  <div style={routeInfoTop}>
+                    {parsed.origin && parsed.destination && <span>{parsed.origin} → {parsed.destination}</span>}
+                    {parsed.origin && !parsed.destination && <span>{parsed.origin}</span>}
+                    {parsed.destination && !parsed.origin && <span>{parsed.destination}</span>}
+                    {dateLabel && <span style={{ opacity:.8 }}> | {dateLabel}</span>}
+                  </div>
+                )}
+                {o.tag && tagColor && (
+                  <span style={{
+                    ...badgeBase,
+                    background: tagColor.bg,
+                    color: tagColor.color
+                  }}>{o.tag.replace('_',' ')}</span>
+                )}
+              </div>
             </div>
             {o.subtitle && <div style={subtitleStyle}>{o.subtitle}</div>}
             <div style={bottomRow}>
               {o.price_from != null && <span style={{ fontSize:11 }}>от <strong>${o.price_from}</strong></span>}
-              {interactive && o.flight_ref && <span style={viewLink}>Поиск</span>}
               {!interactive && o.mode === 'info' && (
                 <span style={{ fontSize:11, color:'#0369a1' }}>i</span>
               )}
             </div>
+            {interactive && o.flight_ref && <span style={searchFixedBtn}>Поиск</span>}
             {o.mode === 'info' && o.description && hovered === o.id && (
               <div style={tooltipBox}>{o.description}</div>
             )}
           </div>
         )
       })}
+      {offers.length > (limit||9) && !showAll && (
+        <button style={showAllButton} onClick={()=>setShowAll(true)}>Все</button>
+      )}
+      {offers.length > (limit||9) && showAll && (
+        <button style={showAllButton} onClick={()=>setShowAll(false)}>Свернуть</button>
+      )}
     </div>
   )
 }
@@ -171,7 +195,9 @@ const cardStyle: React.CSSProperties = {
   height:'auto',
   // Убираем maxWidth, чтобы карточка занимала всю долю 1fr
   transition:'transform .28s cubic-bezier(.4,.2,.2,1), box-shadow .32s ease',
-  animation:'offerFade .55s ease backwards'
+  animation:'offerFade .55s ease backwards',
+  position:'relative',
+  paddingBottom:34
 }
 
 const subtitleStyle: React.CSSProperties = {
@@ -206,6 +232,17 @@ const viewLink: React.CSSProperties = {
   borderRadius:6
 }
 
+const searchFixedBtn: React.CSSProperties = {
+  position:'absolute',
+  bottom:8,
+  right:8,
+  fontSize:11,
+  background:'#1d3557',
+  color:'#fff',
+  padding:'4px 10px',
+  borderRadius:6
+}
+
 const tooltipBox: React.CSSProperties = {
   position:'absolute',
   top:4,
@@ -218,6 +255,27 @@ const tooltipBox: React.CSSProperties = {
   maxWidth:220,
   borderRadius:6,
   boxShadow:'0 4px 12px rgba(0,0,0,0.25)'
+}
+
+const showAllButton: React.CSSProperties = {
+  gridColumn:'1 / -1',
+  marginTop:12,
+  background:'#1d3557',
+  color:'#fff',
+  border:'none',
+  padding:'10px 16px',
+  borderRadius:8,
+  fontSize:13,
+  cursor:'pointer',
+  fontWeight:600
+}
+
+const routeInfoTop: React.CSSProperties = {
+  fontSize:11,
+  fontWeight:500,
+  whiteSpace:'nowrap',
+  display:'flex',
+  alignItems:'center'
 }
 
 // Кнопка "Показать ещё" больше не требуется в фиксированной сетке
