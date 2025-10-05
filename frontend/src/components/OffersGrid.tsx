@@ -101,7 +101,23 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
   const visibleOffers = offers.slice(0, visibleCount)
   const hasMore = offers.length > visibleOffers.length
 
-  if (loading) return <div>Загрузка предложений…</div>
+  if (loading) {
+    return (
+      <div style={gridStyle}>
+        <style>{offerExtraStyles}</style>
+        {Array.from({ length: Math.min( (limit||6), 6) }).map((_,i)=>(
+          <div key={i} style={{ ...cardStyle, animationDelay:`${i*55}ms`, position:'relative', overflow:'hidden' }}>
+            <div style={skeletonLine({ width:'60%', height:14, marginBottom:8 })} />
+            <div style={skeletonLine({ width:'40%', height:10, marginBottom:12 })} />
+            <div style={{ marginTop:'auto', display:'flex', gap:8 }}>
+              <div style={skeletonLine({ width:50, height:18 })} />
+              <div style={skeletonLine({ width:40, height:18 })} />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
   if (error) return <div>{error}</div>
   if (!offers.length) return <div>Нет активных предложений</div>
 
@@ -118,8 +134,9 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
               ...cardStyle,
               cursor: interactive ? 'pointer' : 'default',
               position: 'relative',
-              transform: hovered === o.id ? 'translateY(-2px) scale(1.025)' : 'translateY(0) scale(1)',
-              boxShadow: hovered === o.id ? '0 6px 20px -6px rgba(0,0,0,0.18)' : cardStyle.boxShadow,
+              transform: hovered === o.id ? 'translateY(-3px) scale(1.012)' : 'translateY(0) scale(1)',
+              boxShadow: hovered === o.id ? '0 6px 18px -4px rgba(0,0,0,0.16)' : cardStyle.boxShadow,
+              zIndex: hovered === o.id ? 5 : 1,
               animationDelay: `${idx * 55}ms`
             }}
             onClick={() => handleClick(o)}
@@ -163,7 +180,7 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
 const gridStyle: React.CSSProperties = {
   display:'grid',
   gridTemplateColumns:'repeat(auto-fit, minmax(170px, 230px))',
-  gap:12,
+  gap:16,
   marginTop:8,
   alignItems:'start',
   justifyContent:'start'
@@ -246,6 +263,18 @@ const showMoreButton: React.CSSProperties = {
   fontWeight:600
 }
 
-const offerExtraStyles = `@keyframes offerFade {0% {opacity:0; transform:translateY(10px) scale(.98);} 100% {opacity:1; transform:translateY(0) scale(1);} }`;
+const offerExtraStyles = `@keyframes offerFade {0% {opacity:0; transform:translateY(10px) scale(.98);} 100% {opacity:1; transform:translateY(0) scale(1);} } @keyframes skeletonPulse {0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}`;
+
+// Skeleton helper
+const skeletonLine = (cfg: Partial<React.CSSProperties>): React.CSSProperties => ({
+  background: 'linear-gradient(90deg,#f1f5f9 0%,#e2e8f0 45%,#f1f5f9 100%)',
+  backgroundSize: '200% 100%',
+  animation: 'skeletonPulse 1.4s ease-in-out infinite',
+  borderRadius:4,
+  ...cfg
+})
+
+// (keyframes skeletonPulse добавлены в offerExtraStyles выше)
+
 
 export default OffersGrid
