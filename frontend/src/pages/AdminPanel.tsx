@@ -3,7 +3,7 @@ import api, { extractErrorMessage } from '../lib/api'
 
 type AdminUser = { id: number; email: string; full_name: string; role: string; is_active: boolean }
 
-type Tab = 'users' | 'companies' | 'stats' | 'banners'
+type Tab = 'users' | 'companies' | 'stats' | 'banners' | 'offers'
 
 type Company = { id: number; name: string; is_active: boolean }
 
@@ -13,7 +13,7 @@ export default function AdminPanel() {
     <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
       <h2>Admin Panel</h2>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-  {(['users','companies','stats','banners'] as Tab[]).map(t => (
+  {(['users','companies','stats','banners','offers'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding:'6px 12px',
             border: '1px solid ' + (tab===t?'#444':'#bbb'),
@@ -27,7 +27,8 @@ export default function AdminPanel() {
       {tab === 'users' && <UsersSection />}
   {tab === 'companies' && <CompaniesSection />}
       {tab === 'stats' && <StatsSection />}
-      {tab === 'banners' && <BannersSection />}
+  {tab === 'banners' && <BannersSection />}
+  {tab === 'offers' && <OffersSection />}
     </div>
   )
 }
@@ -414,6 +415,115 @@ function BannersSection() {
                     <button type='button' onClick={()=>startEdit(b)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
                     <button type='button' onClick={()=>toggleActive(b)} style={{ padding:'4px 8px', fontSize:12 }}>{b.is_active? 'Deactivate':'Activate'}</button>
                     <button type='button' disabled={deleting[b.id]} onClick={()=>remove(b)} style={{ padding:'4px 8px', fontSize:12 }}>{deleting[b.id]? '...':'Delete'}</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+type Offer = { id:number; title:string; subtitle?:string|null; price_from?:number|null; flight_ref?:string|null; is_active:boolean; position?:number|null }
+
+function OffersSection() {
+  const [offers, setOffers] = useState<Offer[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string|null>(null)
+  const [refreshTick, setRefreshTick] = useState(0)
+  const [creating, setCreating] = useState(false)
+  const [editingId, setEditingId] = useState<number|null>(null)
+  const [form, setForm] = useState({ title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'' })
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState<Record<number, boolean>>({})
+
+  useEffect(()=>{ load() }, [refreshTick])
+
+  const load = async () => {
+    setLoading(true); setError(null)
+    try {
+      const r = await api.get('/content/admin/offers')
+      setOffers(r.data || [])
+    } catch(e:any){
+      setError(extractErrorMessage(e?.response?.data) || 'Не удалось загрузить offers')
+    } finally { setLoading(false) }
+  }
+  const startCreate = () => { setEditingId(null); setForm({ title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'' }); setCreating(true) }
+  const startEdit = (o:Offer) => { setEditingId(o.id); setForm({ title:o.title||'', subtitle:o.subtitle||'', price_from: o.price_from?.toString()||'', flight_ref:o.flight_ref||'', is_active:o.is_active, position:o.position?.toString()||'' }); setCreating(true) }
+  const reset = () => { setCreating(false); setEditingId(null); setForm({ title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'' }) }
+  const submit = async (e:React.FormEvent) => {
+    e.preventDefault(); if(!form.title.trim()) return; setSaving(true)
+    try {
+      const payload:any = { title: form.title.trim(), is_active: form.is_active }
+      if(form.subtitle.trim()) payload.subtitle = form.subtitle.trim()
+      if(form.price_from.trim()) payload.price_from = Number(form.price_from)
+      if(form.flight_ref.trim()) payload.flight_ref = form.flight_ref.trim()
+      if(form.position.trim()) payload.position = Number(form.position)
+      if(editingId) await api.put(`/content/admin/offers/${editingId}`, payload)
+      else await api.post('/content/admin/offers', payload)
+      reset(); setRefreshTick(x=>x+1)
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Сохранение не удалось')
+    } finally { setSaving(false) }
+  }
+  const toggleActive = async (o:Offer) => { try { await api.put(`/content/admin/offers/${o.id}`, { is_active: !o.is_active }); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Ошибка toggle') } }
+  const remove = async (o:Offer) => { if(!confirm('Удалить offer?')) return; setDeleting(d=>({ ...d, [o.id]: true })); try { await api.delete(`/content/admin/offers/${o.id}`); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Удаление не удалось') } finally { setDeleting(d=>({ ...d, [o.id]: false })) } }
+  return (
+    <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
+      <h3 style={{ marginTop:0 }}>Offers</h3>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+        {!creating && <button onClick={startCreate}>New offer</button>}
+        {creating && <button onClick={reset} type='button'>Cancel</button>}
+      </div>
+      {creating && (
+        <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20, maxWidth:520 }}>
+          <input placeholder='Title *' value={form.title} onChange={e=>setForm(f=>({ ...f, title:e.target.value }))} required />
+          <input placeholder='Subtitle' value={form.subtitle} onChange={e=>setForm(f=>({ ...f, subtitle:e.target.value }))} />
+          <input placeholder='Price from' value={form.price_from} onChange={e=>{ const v=e.target.value; if(/^[0-9]*\.?[0-9]*$/.test(v)) setForm(f=>({ ...f, price_from:v })) }} />
+          <input placeholder='Flight ref (опц.)' value={form.flight_ref} onChange={e=>setForm(f=>({ ...f, flight_ref:e.target.value }))} />
+          <input placeholder='Position' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, position:v })) }} />
+          <label style={{ display:'flex', gap:6, fontSize:14 }}>
+            <input type='checkbox' checked={form.is_active} onChange={e=>setForm(f=>({ ...f, is_active:e.target.checked }))} /> Active
+          </label>
+          <div style={{ display:'flex', gap:8 }}>
+            <button type='submit' disabled={saving}>{saving? '...' : (editingId? 'Update' : 'Create')}</button>
+          </div>
+        </form>
+      )}
+      {loading && <p>Загрузка...</p>}
+      {error && <p style={{ color:'red' }}>{error}</p>}
+      {!loading && !error && offers.length===0 && <p>Нет offers.</p>}
+      {!loading && !error && offers.length>0 && (
+        <div style={{ overflowX:'auto' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:14 }}>
+            <thead>
+              <tr style={{ textAlign:'left', background:'#fafafa' }}>
+                <th style={th}>ID</th>
+                <th style={th}>Title</th>
+                <th style={th}>Active</th>
+                <th style={th}>Pos</th>
+                <th style={th}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {offers.sort((a,b)=> (a.position??0) - (b.position??0)).map(o => (
+                <tr key={o.id} style={{ borderTop:'1px solid #eee' }}>
+                  <td style={td}>{o.id}</td>
+                  <td style={{ ...td, maxWidth:260 }}>
+                    <div style={{ fontWeight:600 }}>{o.title}</div>
+                    {o.subtitle && <div style={{ fontSize:11, opacity:.7 }}>{o.subtitle}</div>}
+                    {o.flight_ref && <div style={{ fontSize:11, opacity:.7 }}>{o.flight_ref}</div>}
+                    {o.price_from!=null && <div style={{ fontSize:11, opacity:.7 }}>from ${o.price_from}</div>}
+                  </td>
+                  <td style={td}>{o.is_active? 'Yes':'No'}</td>
+                  <td style={td}>{o.position ?? ''}</td>
+                  <td style={{ ...td, display:'flex', gap:6, flexWrap:'wrap' }}>
+                    <button type='button' onClick={()=>startEdit(o)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
+                    <button type='button' onClick={()=>toggleActive(o)} style={{ padding:'4px 8px', fontSize:12 }}>{o.is_active? 'Deactivate':'Activate'}</button>
+                    <button type='button' disabled={deleting[o.id]} onClick={()=>remove(o)} style={{ padding:'4px 8px', fontSize:12 }}>{deleting[o.id]? '...':'Delete'}</button>
                   </td>
                 </tr>
               ))}
