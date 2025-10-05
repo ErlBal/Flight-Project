@@ -40,9 +40,6 @@ export default function Dashboard() {
   const [toast, setToast] = useState<string | null>(null)
   const [userInfo, setUserInfo] = useState<{ email: string; roles: string[] } | null>(null)
   const [quantities, setQuantities] = useState<Record<number, number>>({})
-  const [searchDate, setSearchDate] = useState<string>("")
-  const [searchPassengers, setSearchPassengers] = useState<number | ''>('')
-  const [searchLoading, setSearchLoading] = useState(false)
   const [buying, setBuying] = useState<Record<number, boolean>>({})
 
   const loadTickets = async () => {
@@ -58,18 +55,13 @@ export default function Dashboard() {
     }
   }
 
-  const loadFlights = async (params?: { date?: string; passengers?: number | '' }) => {
+  const loadFlights = async () => {
     setLoadingFlights(true)
     try {
-      const query: any = {}
-      const d = params?.date ?? searchDate
-      const p = params?.passengers ?? searchPassengers
-      if (d) query.date = d
-      if (p) query.passengers = p
-      const res = await api.get('/flights', { params: query })
+      const res = await api.get('/flights', { params: {} })
       setFlights(res.data.items || [])
     } catch (err: any) {
-      // flights ошибки показываем отдельно, но не ломаем страницу
+      // ignore errors, list optional
     } finally {
       setLoadingFlights(false)
     }
@@ -122,12 +114,7 @@ export default function Dashboard() {
     loadFlights()
   }, [])
 
-  const submitSearch = async (e?: React.FormEvent<HTMLFormElement>) => {
-    if (e) e.preventDefault()
-    setSearchLoading(true)
-    await loadFlights({ date: searchDate, passengers: searchPassengers })
-    setSearchLoading(false)
-  }
+  // Removed search form logic; flights list can be simplified or repurposed later.
 
   return (
     <div>
@@ -150,21 +137,7 @@ export default function Dashboard() {
           <button style={{ marginLeft:12 }} onClick={() => { localStorage.removeItem('auth_token'); location.href = '/login' }}>Logout</button>
         </div>
       )}
-      <h3>Available Flights</h3>
-      <form onSubmit={submitSearch} style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:12, alignItems:'flex-end' }}>
-        <div style={{ display:'flex', flexDirection:'column' }}>
-          <label style={{ fontSize:12 }}>Дата (UTC)</label>
-          <input type="date" value={searchDate} onChange={e => setSearchDate(e.target.value)} />
-        </div>
-        <div style={{ display:'flex', flexDirection:'column' }}>
-          <label style={{ fontSize:12 }}>Пассажиры ≥</label>
-          <input type="number" min={1} value={searchPassengers} onChange={e => setSearchPassengers(e.target.value ? Number(e.target.value) : '')} />
-        </div>
-        <button type="submit" disabled={searchLoading}>{searchLoading ? 'Поиск...' : 'Поиск'}</button>
-        {(searchDate || searchPassengers) && (
-          <button type="button" onClick={() => { setSearchDate(''); setSearchPassengers(''); loadFlights({ date:'', passengers:'' }); }}>Сброс</button>
-        )}
-      </form>
+      <h3>Available Flights (quick list)</h3>
       {loadingFlights && <p>Loading flights...</p>}
       {!loadingFlights && flights.length === 0 && <p>No flights found.</p>}
       <ul style={{ listStyle: 'none', padding: 0 }}>

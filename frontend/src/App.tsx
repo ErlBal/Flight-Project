@@ -25,7 +25,6 @@ export default function App() {
     <div style={{ fontFamily: 'system-ui, sans-serif', lineHeight: 1.4 }}>
       <nav style={{ display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid #eee', alignItems:'center' }}>
         <Link to="/">Home</Link>
-        <Link to="/search">Search</Link>
         <Link to="/dashboard">My Tickets</Link>
   {canSeeCompany && <Link to="/company">Company</Link>}
         {isAdmin && <Link to="/admin">Admin</Link>}

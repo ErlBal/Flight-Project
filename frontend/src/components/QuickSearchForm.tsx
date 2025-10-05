@@ -17,9 +17,9 @@ export const QuickSearchForm: React.FC<Props> = ({ onSubmit }) => {
     const params = new URLSearchParams()
     if (origin) params.set('origin', origin)
     if (destination) params.set('destination', destination)
-    if (date) params.set('departure_date', date)
+  if (date) params.set('date', date)
     params.set('passengers', String(passengers))
-    nav(`/search?${params.toString()}`)
+  nav(`/?${params.toString()}`)
     onSubmit?.()
   }
 
@@ -27,11 +27,11 @@ export const QuickSearchForm: React.FC<Props> = ({ onSubmit }) => {
     <form onSubmit={handleSubmit} style={formStyle}>
       <div style={fieldCol}> 
         <label style={labelStyle}>Origin</label>
-        <input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="ALA" style={inputStyle} />
+        <input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="" style={inputStyle} />
       </div>
       <div style={fieldCol}> 
         <label style={labelStyle}>Destination</label>
-        <input value={destination} onChange={e => setDestination(e.target.value)} placeholder="NQZ" style={inputStyle} />
+        <input value={destination} onChange={e => setDestination(e.target.value)} placeholder="" style={inputStyle} />
       </div>
       <div style={fieldCol}> 
         <label style={labelStyle}>Date</label>

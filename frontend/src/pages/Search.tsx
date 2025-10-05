@@ -54,7 +54,8 @@ export default function Search() {
       if (minPrice) query.min_price = Number(minPrice)
       if (maxPrice) query.max_price = Number(maxPrice)
       if (stopsMax) query.max_stops = Number(stopsMax)
-      const r = await api.get('/flights', { params: query })
+  // IMPORTANT: use trailing slash to hit actual list endpoint (non-slash alias only returns info message)
+  const r = await api.get('/flights/', { params: query })
       setFlights(r.data.items || [])
     } catch(e:any){
       setError(extractErrorMessage(e?.response?.data) || 'Search failed')
@@ -97,11 +98,11 @@ export default function Search() {
       <form onSubmit={submit} style={{ display:'grid', gap:12, gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', background:'#fafafa', padding:16, borderRadius:8, marginBottom:20 }}>
         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
           <label style={lbl}>Origin</label>
-          <input value={origin} onChange={e=>setOrigin(e.target.value.toUpperCase())} placeholder='ALA' />
+          <input value={origin} onChange={e=>setOrigin(e.target.value.toUpperCase())} placeholder='' />
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
           <label style={lbl}>Destination</label>
-          <input value={destination} onChange={e=>setDestination(e.target.value.toUpperCase())} placeholder='NQZ' />
+          <input value={destination} onChange={e=>setDestination(e.target.value.toUpperCase())} placeholder='' />
         </div>
         <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
           <label style={lbl}>Date</label>

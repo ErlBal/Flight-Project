@@ -35,7 +35,7 @@ def seed_demo_data():
      # if db.query(Flight).count() == 0:
      #     now = datetime.utcnow()
      #     flights = [
-     #         Flight(airline="DemoAir", flight_number="DA101", origin="ALA", destination="NQZ",
+     #         Flight(airline="DemoAir", flight_number="DA101", origin="", destination="",
      #                departure=now + timedelta(days=1), arrival=now + timedelta(days=1, hours=1, minutes=30),
      #                price=39.00, seats_total=180, seats_available=120, company_id=demo_company.id),
      #         Flight(airline="DemoAir", flight_number="DA202", origin="ALA", destination="DXB",

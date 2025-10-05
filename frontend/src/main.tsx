@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import App from './App'
 import Landing from './pages/Landing'
-import Search from './pages/Search'
 import Dashboard from './pages/Dashboard'
 import CompanyDashboard from './pages/CompanyDashboard'
 import AdminPanel from './pages/AdminPanel'
@@ -16,7 +15,6 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: <Landing /> },
-      { path: 'search', element: <Search /> },
       { path: 'dashboard', element: <Dashboard /> },
       { path: 'company', element: <CompanyDashboard /> },
       { path: 'admin', element: <AdminPanel /> },

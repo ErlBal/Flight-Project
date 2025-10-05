@@ -49,7 +49,7 @@ export const HighlightedOffers: React.FC<Props> = ({ limit = 6 }) => {
           {o.subtitle && <div style={{ fontSize: 12, color: '#475569', marginTop: 4 }}>{o.subtitle}</div>}
           <div style={{ marginTop: 8, fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             {o.price_from != null && <span>from <strong>${o.price_from}</strong></span>}
-            {o.flight_ref && <a href={`/search?ref=${encodeURIComponent(o.flight_ref)}`} style={linkBtn}>View</a>}
+            {o.flight_ref && <a href={`/?ref=${encodeURIComponent(o.flight_ref)}`} style={linkBtn}>View</a>}
           </div>
         </div>
       ))}
