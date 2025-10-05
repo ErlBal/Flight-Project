@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import api from '../lib/api'
 
 export interface Offer {
@@ -41,15 +41,11 @@ const parseFlightRef = (ref?: string | null): ActivatePayload => {
   return { origin, destination, date }
 }
 
-export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
+export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
   const [offers, setOffers] = useState<Offer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hovered, setHovered] = useState<number | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const [columns, setColumns] = useState(0)
-  const [expanded, setExpanded] = useState(false)
-  const ROWS_INITIAL = 2
 
   const load = useCallback(() => {
     setLoading(true); setError(null)
@@ -75,43 +71,19 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
     }
   }
 
-  // Подсчёт примерного количества колонок для ограничения числа карточек при свернутом состоянии
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const compute = () => {
-      const w = el.clientWidth
-      // 170 (min) + 12 (gap) => условная ширина блока
-      const cols = Math.max(1, Math.floor((w + 12) / 182))
-      setColumns(cols)
-    }
-    compute()
-    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(compute) : undefined
-    ro?.observe(el)
-    window.addEventListener('resize', compute)
-    return () => {
-      window.removeEventListener('resize', compute)
-      ro?.disconnect()
-    }
-  }, [offers.length])
-
-  const visibleCount = expanded
-    ? offers.length
-    : (columns > 0 ? Math.min(offers.length, columns * ROWS_INITIAL) : Math.min(offers.length, limit || offers.length))
-  const visibleOffers = offers.slice(0, visibleCount)
-  const hasMore = offers.length > visibleOffers.length
+  const visibleOffers = offers.slice(0, limit || 9)
 
   if (loading) {
     return (
-      <div style={gridStyle}>
+  <div style={gridFixed3} className='offers-grid-3'>
         <style>{offerExtraStyles}</style>
-        {Array.from({ length: Math.min( (limit||6), 6) }).map((_,i)=>(
-          <div key={i} style={{ ...cardStyle, animationDelay:`${i*55}ms`, position:'relative', overflow:'hidden' }}>
-            <div style={skeletonLine({ width:'60%', height:14, marginBottom:8 })} />
-            <div style={skeletonLine({ width:'40%', height:10, marginBottom:12 })} />
+        {Array.from({ length: Math.min(limit || 9, 9) }).map((_,i)=>(
+          <div key={i} style={{ ...cardStyle, animationDelay:`${i*45}ms`, position:'relative', overflow:'hidden' }}>
+            <div style={skeletonLine({ width:'70%', height:14, marginBottom:10 })} />
+            <div style={skeletonLine({ width:'50%', height:10, marginBottom:14 })} />
             <div style={{ marginTop:'auto', display:'flex', gap:8 }}>
+              <div style={skeletonLine({ width:60, height:18 })} />
               <div style={skeletonLine({ width:50, height:18 })} />
-              <div style={skeletonLine({ width:40, height:18 })} />
             </div>
           </div>
         ))}
@@ -122,7 +94,7 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
   if (!offers.length) return <div>Нет активных предложений</div>
 
   return (
-    <div ref={containerRef} style={gridStyle}>
+  <div style={gridFixed3} className='offers-grid-3'>
       <style>{offerExtraStyles}</style>
       {visibleOffers.map((o, idx) => {
         const tagColor = o.tag ? tagColors[o.tag] : undefined
@@ -167,23 +139,21 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
           </div>
         )
       })}
-      {hasMore && (
-        <button onClick={() => setExpanded(v => !v)} style={showMoreButton}>
-          {expanded ? 'Скрыть' : 'Показать ещё'}
-        </button>
-      )}
     </div>
   )
 }
 
-// Сетка с ограничением максимальной ширины трека, чтобы карточки не растягивались чрезмерно при малом количестве.
-const gridStyle: React.CSSProperties = {
+// Фиксированная сетка 3 колонки (до 9 элементов). Равномерное распределение ширины.
+const gridFixed3: React.CSSProperties = {
   display:'grid',
-  gridTemplateColumns:'repeat(auto-fit, minmax(170px, 230px))',
-  gap:16,
+  gridTemplateColumns:'repeat(3, 1fr)',
+  gap:24,
   marginTop:8,
-  alignItems:'start',
-  justifyContent:'start'
+  alignItems:'stretch',
+  justifyItems:'stretch',
+  width:'100%',
+  maxWidth: '100%',
+  // Адаптив через inline <style> ниже
 }
 
 const cardStyle: React.CSSProperties = {
@@ -199,7 +169,7 @@ const cardStyle: React.CSSProperties = {
   lineHeight:1.25,
   width:'100%',
   height:'auto',
-  maxWidth:230,
+  // Убираем maxWidth, чтобы карточка занимала всю долю 1fr
   transition:'transform .28s cubic-bezier(.4,.2,.2,1), box-shadow .32s ease',
   animation:'offerFade .55s ease backwards'
 }
@@ -250,20 +220,9 @@ const tooltipBox: React.CSSProperties = {
   boxShadow:'0 4px 12px rgba(0,0,0,0.25)'
 }
 
-const showMoreButton: React.CSSProperties = {
-  gridColumn:'1 / -1',
-  marginTop:4,
-  background:'#1d3557',
-  color:'#fff',
-  border:'none',
-  borderRadius:8,
-  padding:'8px 14px',
-  fontSize:13,
-  cursor:'pointer',
-  fontWeight:600
-}
+// Кнопка "Показать ещё" больше не требуется в фиксированной сетке
 
-const offerExtraStyles = `@keyframes offerFade {0% {opacity:0; transform:translateY(10px) scale(.98);} 100% {opacity:1; transform:translateY(0) scale(1);} } @keyframes skeletonPulse {0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}`;
+const offerExtraStyles = `@keyframes offerFade {0% {opacity:0; transform:translateY(10px) scale(.98);} 100% {opacity:1; transform:translateY(0) scale(1);} } @keyframes skeletonPulse {0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}} @media (max-width:1000px){ .offers-grid-3 {grid-template-columns:repeat(2,1fr);} } @media (max-width:620px){ .offers-grid-3 {grid-template-columns:repeat(1,1fr);} }`;
 
 // Skeleton helper
 const skeletonLine = (cfg: Partial<React.CSSProperties>): React.CSSProperties => ({
