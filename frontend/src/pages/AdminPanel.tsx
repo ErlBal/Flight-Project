@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import api, { extractErrorMessage } from '../lib/api'
 
 type AdminUser = { id: number; email: string; full_name: string; role: string; is_active: boolean; companies?: number[]; company_names?: string[] }
@@ -352,8 +352,13 @@ function StatsSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [seriesLoading, setSeriesLoading] = useState(false)
+  const [seriesError, setSeriesError] = useState<string | null>(null)
+  const [seriesData, setSeriesData] = useState<any|null>(null)
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['passengers','revenue','flights','load_factor'])
 
   useEffect(() => { load() }, [range, refreshTick])
+  useEffect(() => { loadSeries() }, [range, refreshTick, selectedMetrics])
 
   const load = async () => {
     setLoading(true); setError(null)
@@ -363,6 +368,17 @@ function StatsSection() {
     } catch(e:any){
       setError(extractErrorMessage(e?.response?.data) || 'Failed to load stats')
     } finally { setLoading(false) }
+  }
+
+  const loadSeries = async () => {
+    setSeriesLoading(true); setSeriesError(null)
+    try {
+      const metricsParam = selectedMetrics.join(',')
+      const r = await api.get('/admin/stats/series', { params:{ range, metrics: metricsParam } })
+      setSeriesData(r.data)
+    } catch(e:any){
+      setSeriesError(extractErrorMessage(e?.response?.data) || 'Failed to load series')
+    } finally { setSeriesLoading(false) }
   }
 
   const metrics: Array<{key:string; label:string; format?:(v:any)=>string}> = [
@@ -378,6 +394,21 @@ function StatsSection() {
     { key:'revenue', label:'Revenue', format: v => '$'+Number(v).toFixed(2) },
   ]
 
+  const toggleMetric = (m:string) => {
+    setSelectedMetrics(curr => curr.includes(m) ? curr.filter(x=>x!==m) : [...curr, m])
+  }
+
+  const latestByMetric: Record<string, any> = useMemo(()=>{
+    const out: Record<string, any> = {}
+    if(seriesData?.points){
+      const last = seriesData.points[seriesData.points.length-1]
+      if (last?.values) {
+        for(const k of Object.keys(last.values)) out[k] = last.values[k]
+      }
+    }
+    return out
+  }, [seriesData])
+
   return (
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
       <h3 style={{ marginTop:0 }}>Service Statistics</h3>
@@ -390,6 +421,34 @@ function StatsSection() {
           }}>{r}</button>
         ))}
         <button onClick={() => setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+        <div style={{ display:'flex', gap:4 }}>
+          <button type='button' disabled={loading} onClick={async ()=>{
+            try {
+              const r = await api.get('/admin/stats/export', { params:{ range, fmt:'csv' }, responseType:'blob' })
+              const blob = new Blob([r.data], { type:'text/csv' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a'); a.href=url; a.download=`service_stats_${range}.csv`; a.click(); URL.revokeObjectURL(url)
+            } catch {}
+          }}>Export CSV</button>
+          <button type='button' disabled={loading} onClick={async ()=>{
+            try {
+              const r = await api.get('/admin/stats/export', { params:{ range, fmt:'xlsx' }, responseType:'blob' })
+              const blob = new Blob([r.data], { type:'application/vnd.ms-excel' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a'); a.href=url; a.download=`service_stats_${range}.xml`; a.click(); URL.revokeObjectURL(url)
+            } catch {}
+          }}>Export Excel</button>
+        </div>
+      </div>
+      <div style={{ marginBottom:12, display:'flex', flexWrap:'wrap', gap:8 }}>
+        <span style={{ fontSize:12, opacity:.7 }}>Метрики для графиков:</span>
+        {['passengers','revenue','flights','seats_sold','seats_capacity','load_factor'].map(m => (
+          <button key={m} type='button' onClick={()=>toggleMetric(m)} style={{
+            padding:'3px 8px', fontSize:11, border:'1px solid '+(selectedMetrics.includes(m)?'#1d3557':'#bbb'),
+            background:selectedMetrics.includes(m)?'#1d3557':'#f1f5f9', color:selectedMetrics.includes(m)?'#fff':'#1e293b', borderRadius:14
+          }}>{m}</button>
+        ))}
+        <button type='button' onClick={()=>setRefreshTick(x=>x+1)} disabled={seriesLoading} style={{ padding:'3px 10px', fontSize:11 }}>Refresh series</button>
       </div>
       {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
@@ -399,11 +458,85 @@ function StatsSection() {
             <div key={m.key} style={{ border:'1px solid #eee', padding:10, borderRadius:4, background:'#fafafa' }}>
               <div style={{ fontSize:12, opacity:.7 }}>{m.label}</div>
               <div style={{ fontSize:20, fontWeight:600 }}>{m.format? m.format(data[m.key]) : (data[m.key] ?? '—')}</div>
+              {selectedMetrics.includes(m.key) && seriesData?.points?.length>1 && (
+                <div style={{ marginTop:6 }}>
+                  <Sparkline
+                    data={seriesData.points.map((p:any)=>({ x:p.date, y: p.values[m.key] ?? null }))}
+                    color={'#2563eb'} height={34}
+                    strokeWidth={1.5}
+                    smooth
+                    valueFormatter={m.format}
+                  />
+                </div>
+              )}
+              {selectedMetrics.includes(m.key) && seriesLoading && <div style={{ fontSize:10, opacity:.6, marginTop:4 }}>…</div>}
+              {selectedMetrics.includes(m.key) && seriesError && <div style={{ fontSize:10, color:'red', marginTop:4 }}>err</div>}
             </div>
           ))}
         </div>
       )}
     </div>
+  )
+}
+
+// Минимальный компонент для line sparkline на SVG
+function Sparkline({ data, width=120, height=40, color='#0f62fe', strokeWidth=1.5, smooth=false, valueFormatter }:{
+  data: { x:string; y:number|null }[]
+  width?: number
+  height?: number
+  color?: string
+  strokeWidth?: number
+  smooth?: boolean
+  valueFormatter?: (v:any)=>string
+}) {
+  const points = data.filter(d=> typeof d.y === 'number') as {x:string; y:number}[]
+  if(!points.length) return <div style={{ fontSize:10, opacity:.5 }}>no data</div>
+  const ys = points.map(p=>p.y)
+  const min = Math.min(...ys)
+  const max = Math.max(...ys)
+  const span = max - min || 1
+  const w = width
+  const h = height
+  const step = points.length>1 ? (w-4)/(points.length-1) : 0
+  const path = points.map((p,i)=>{
+    const x = 2 + i*step
+    const y = h - 2 - ((p.y - min)/span)*(h-4)
+    return `${i===0? 'M':'L'}${x.toFixed(2)},${y.toFixed(2)}`
+  }).join(' ')
+  let d = path
+  if(smooth && points.length>2){
+    // простое сглаживание Catmull-Rom -> Bezier
+    const cr = (pts:{x:number,y:number}[]) => {
+      const res:string[] = []
+      for(let i=0;i<pts.length;i++){
+        const p0 = pts[Math.max(0,i-1)]
+        const p1 = pts[i]
+        const p2 = pts[Math.min(pts.length-1,i+1)]
+        const p3 = pts[Math.min(pts.length-1,i+2)]
+        if(i===0){ res.push(`M${p1.x},${p1.y}`); continue }
+        const cp1x = p1.x + (p2.x - p0.x)/6
+        const cp1y = p1.y + (p2.y - p0.y)/6
+        const cp2x = p2.x - (p3.x - p1.x)/6
+        const cp2y = p2.y - (p3.y - p1.y)/6
+        res.push(`C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`)
+      }
+      return res.join(' ')
+    }
+    const pts = points.map((p,i)=>{
+      const x = 2 + i*step
+      const y = h - 2 - ((p.y - min)/span)*(h-4)
+      return {x:Number(x.toFixed(2)), y:Number(y.toFixed(2))}
+    })
+    d = cr(pts)
+  }
+  const lastVal = points[points.length-1].y
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} role='img' aria-label={`sparkline min ${min} max ${max}`} style={{ display:'block' }}>
+      <path d={d} fill='none' stroke={color} strokeWidth={strokeWidth} strokeLinejoin='round' strokeLinecap='round' />
+      {/* последний кружок */}
+      <circle cx={2 + (points.length-1)*step} cy={h - 2 - ((lastVal - min)/span)*(h-4)} r={2.3} fill={color} />
+      <title>{`Последнее: ${valueFormatter? valueFormatter(lastVal): lastVal} (min ${min}, max ${max})`}</title>
+    </svg>
   )
 }
 

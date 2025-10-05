@@ -1,5 +1,6 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_roles, get_current_identity
@@ -34,19 +35,84 @@ def _get_manager_company_ids(db: Session, email: str) -> list[int]:
     return [fallback.id] if fallback else []
 
 
-@router.get("/flights", response_model=List[dict])
-def list_company_flights(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+@router.get("/flights", response_model=dict)
+def list_company_flights(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    sort: str = Query("departure_asc"),
+    status: str = Query("all", pattern="^(all|active|completed)$"),
+    db: Session = Depends(get_db),
+    identity=Depends(get_current_identity)
+):
+    """Список рейсов с пагинацией и сортировкой.
+
+        sort варианты:
+            departure_asc|departure_desc|arrival_asc|arrival_desc|price_asc|price_desc|
+            seats_available_desc|seats_available_asc|created_desc|revenue_est_desc|revenue_est_asc
+    (created_desc = surrogate по id убыв.)
+    """
     email, roles = identity
-    # Admin can see all flights (for reuse of this endpoint if needed)
     if "admin" in roles:
-        flights = db.query(Flight).all()
+        q = db.query(Flight)
     else:
         company_ids = _get_manager_company_ids(db, email)
         if not company_ids:
-            return []
-        flights = db.query(Flight).filter(Flight.company_id.in_(company_ids)).all()
-    return [
-        {
+            return {"items": [], "total": 0, "page": page, "page_size": page_size, "pages": 1}
+        q = db.query(Flight).filter(Flight.company_id.in_(company_ids))
+
+    # Фильтр по статусу (active = будущее, completed = прошедшее)
+    now = datetime.utcnow()
+    if status == "active":
+        q = q.filter(Flight.departure > now)
+    elif status == "completed":
+        q = q.filter(Flight.departure <= now)
+
+    # Sorting
+    if sort == "departure_asc":
+        q = q.order_by(Flight.departure.asc())
+    elif sort == "departure_desc":
+        q = q.order_by(Flight.departure.desc())
+    elif sort == "arrival_asc":
+        q = q.order_by(Flight.arrival.asc())
+    elif sort == "arrival_desc":
+        q = q.order_by(Flight.arrival.desc())
+    elif sort == "price_asc":
+        q = q.order_by(Flight.price.asc())
+    elif sort == "price_desc":
+        q = q.order_by(Flight.price.desc())
+    elif sort == "seats_available_desc":
+        q = q.order_by(Flight.seats_available.desc())
+    elif sort == "seats_available_asc":
+        q = q.order_by(Flight.seats_available.asc())
+    elif sort == "created_desc":
+        q = q.order_by(Flight.id.desc())
+    elif sort == "revenue_est_desc":
+        # seats_sold = seats_total - seats_available; оценка = price * (seats_total - seats_available)
+        # Для сортировки используем выражение; price Numeric -> приведём через cast к float (необязательно)
+        rev_expr = (Flight.price * (Flight.seats_total - Flight.seats_available))
+        q = q.order_by(rev_expr.desc())
+    elif sort == "revenue_est_asc":
+        rev_expr = (Flight.price * (Flight.seats_total - Flight.seats_available))
+        q = q.order_by(rev_expr.asc())
+    else:
+        q = q.order_by(Flight.departure.asc())
+
+    total = q.count()
+    pages = (total + page_size - 1) // page_size if total else 1
+    if page > pages:
+        page = pages
+    offset = (page - 1) * page_size
+    flights = q.offset(offset).limit(page_size).all()
+
+    items = []
+    # Предзагрузка имён компаний
+    company_ids_set = {f.company_id for f in flights if f.company_id}
+    company_map: dict[int, str] = {}
+    if company_ids_set:
+        for c in db.query(Company).filter(Company.id.in_(company_ids_set)).all():
+            company_map[c.id] = c.name
+    for f in flights:
+        items.append({
             "id": f.id,
             "airline": f.airline,
             "flight_number": f.flight_number,
@@ -58,10 +124,9 @@ def list_company_flights(db: Session = Depends(get_db), identity=Depends(get_cur
             "seats_total": f.seats_total,
             "seats_available": f.seats_available,
             "company_id": f.company_id,
-            "company_name": db.query(Company.name).filter(Company.id == f.company_id).scalar() if f.company_id else None,
-        }
-        for f in flights
-    ]
+            "company_name": company_map.get(f.company_id) if f.company_id else None,
+        })
+    return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
 
 
 @router.post("/flights", response_model=dict)
@@ -261,6 +326,41 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
     return {"status": "deleted", "refunded_tickets": refund_count}
 
 
+@router.post("/flights/{flight_id}/seats-adjust", response_model=dict)
+def adjust_seats(flight_id: int, delta: int = Query(..., ge=-1000, le=1000), db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    """Быстрое изменение доступных мест delta (может быть отрицательным/положительным).
+    Правила: 0 <= seats_available+delta <= seats_total; также >= sold (оплаченных).
+    """
+    email, roles = identity
+    company_ids = _get_manager_company_ids(db, email) if "admin" not in roles else []
+    f = db.query(Flight).filter(Flight.id == flight_id).first()
+    if not f:
+        raise HTTPException(status_code=404, detail="Flight not found")
+    if "admin" not in roles and company_ids and f.company_id not in company_ids:
+        raise HTTPException(status_code=403, detail="Not your company flight")
+    sold = db.query(func.count(Ticket.id)).filter(Ticket.flight_id == f.id, Ticket.status == "paid").scalar() or 0
+    new_value = f.seats_available + delta
+    if new_value < 0:
+        raise HTTPException(status_code=400, detail="Resulting seats_available would be negative")
+    if new_value > f.seats_total:
+        raise HTTPException(status_code=400, detail="Resulting seats_available exceeds seats_total")
+    if new_value < sold:
+        raise HTTPException(status_code=400, detail="Resulting seats_available less than sold seats")
+    if delta == 0:
+        return {"status": "noop", "seats_available": f.seats_available}
+    f.seats_available = new_value
+    db.commit()
+    # WS broadcast
+    import asyncio
+    try:
+        asyncio.create_task(ws_manager.broadcast({
+            "type": "flight_seats", "data": {"flight_id": f.id, "seats_available": f.seats_available}
+        }))
+    except RuntimeError:
+        pass
+    return {"status": "ok", "seats_available": f.seats_available}
+
+
 @router.get("/flights/{flight_id}/passengers", response_model=List[dict])
 def list_passengers(flight_id: int, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
     email, roles = identity
@@ -280,6 +380,56 @@ def list_passengers(flight_id: int, db: Session = Depends(get_db), identity=Depe
         }
         for t in tickets
     ]
+
+
+@router.get("/flights/{flight_id}/passengers/export")
+def export_passengers(flight_id: int, fmt: str = Query("csv", pattern="^(csv|xlsx)$"), db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    email, roles = identity
+    company_ids = _get_manager_company_ids(db, email) if "admin" not in roles else []
+    f = db.query(Flight).filter(Flight.id == flight_id).first()
+    if not f:
+        raise HTTPException(status_code=404, detail="Flight not found")
+    if "admin" not in roles and company_ids and f.company_id not in company_ids:
+        raise HTTPException(status_code=403, detail="Not your company flight")
+    tickets = db.query(Ticket).filter(Ticket.flight_id == flight_id, Ticket.status == "paid").all()
+    rows = [
+        ["confirmation_id", "user_email", "status", "purchased_at", "price_paid"],
+    ]
+    for t in tickets:
+        rows.append([
+            t.confirmation_id,
+            t.user_email,
+            t.status,
+            t.purchased_at.isoformat() if t.purchased_at else "",
+            str(t.price_paid or 0),
+        ])
+    if fmt == "csv":
+        import io, csv
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerows(rows)
+        data = buf.getvalue().encode("utf-8-sig")
+        filename = f"passengers_f{flight_id}.csv"
+        return Response(data, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
+    else:  # xlsx minimal (SpreadsheetML XML) – без внешних зависимостей
+        # Очень простой XML (Excel откроет). Для полноценного XLSX требуется zip + sheet, но
+        # используем "XML Spreadsheet 2003" формат.
+        def esc(s: str):
+            import html
+            return html.escape(s, quote=True)
+        cells_xml = []
+        for r in rows:
+            cells = ''.join([f'<Cell><Data ss:Type="String">{esc(c)}</Data></Cell>' for c in r])
+            cells_xml.append(f"<Row>{cells}</Row>")
+        xml = (
+            "<?xml version=\"1.0\"?>"\
+            "<?mso-application progid=\"Excel.Sheet\"?>"\
+            "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">"\
+            "<Worksheet ss:Name=\"Passengers\"><Table>" + ''.join(cells_xml) + "</Table></Worksheet></Workbook>"
+        )
+        data = xml.encode("utf-8")
+        filename = f"passengers_f{flight_id}.xml"  # расширение xml, Excel откроет
+        return Response(data, media_type="application/vnd.ms-excel", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 
 def _time_range(filter_name: str):

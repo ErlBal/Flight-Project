@@ -1,5 +1,6 @@
 from typing import List
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi.responses import Response
 from sqlalchemy import func
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
@@ -149,6 +150,165 @@ def service_stats(range: str = "all", db: Session = Depends(get_db)):
         "load_factor": load_factor,
         "revenue": float(sales or 0),
         "total_sales": float(sales or 0),  # backward compatibility
+    }
+
+
+@router.get("/stats/export")
+def export_service_stats(range: str = "all", fmt: str = Query("csv", pattern="^(csv|xlsx)$"), db: Session = Depends(get_db)):
+    data = service_stats(range, db)
+    rows = [["metric", "value"]] + [[k, str(v)] for k, v in data.items()]
+    if fmt == "csv":
+        import io, csv
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        for r in rows: w.writerow(r)
+        out = buf.getvalue().encode("utf-8-sig")
+        return Response(out, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename=service_stats_{range}.csv"})
+    else:
+        import html
+        def esc(s: str): return html.escape(s, quote=True)
+        xml_rows = []
+        for r in rows:
+            xml_rows.append('<Row>' + ''.join(f'<Cell><Data ss:Type="String">{esc(c)}</Data></Cell>' for c in r) + '</Row>')
+        xml = (
+            "<?xml version=\"1.0\"?>"\
+            "<?mso-application progid=\"Excel.Sheet\"?>"\
+            "<Workbook xmlns=\"urn:schemas-microsoft-com:office:spreadsheet\" xmlns:ss=\"urn:schemas-microsoft-com:office:spreadsheet\">"\
+            "<Worksheet ss:Name=\"ServiceStats\"><Table>" + ''.join(xml_rows) + "</Table></Worksheet></Workbook>"
+        )
+        return Response(xml.encode('utf-8'), media_type='application/vnd.ms-excel', headers={"Content-Disposition": f"attachment; filename=service_stats_{range}.xml"})
+
+
+@router.get("/stats/series", response_model=dict)
+def service_stats_series(
+    range: str = "week",
+    metrics: str | None = None,
+    granularity: str = "day",
+    limit_days: int = Query(180, ge=1, le=365),
+    db: Session = Depends(get_db),
+):
+    """Возвращает временной ряд метрик по дням.
+
+    Параметры:
+      range: all|today|week|month (или all для всей истории, но ограниченной limit_days)
+      metrics: запятая через список метрик (passengers,revenue,flights,seats_sold,seats_capacity,load_factor)
+      granularity: пока поддерживается только 'day'
+      limit_days: ограничение максимальной длины серии для range=all
+
+    Формат ответа:
+      { range, granularity, metrics:[...], points:[ { date:'YYYY-MM-DD', values:{metric: value,...}} ] }
+    """
+    if granularity != "day":
+        raise HTTPException(status_code=400, detail="only 'day' granularity supported")
+
+    allowed = ["passengers", "revenue", "flights", "seats_sold", "seats_capacity", "load_factor"]
+    if metrics:
+        requested = [m.strip() for m in metrics.split(",") if m.strip()]
+        for m in requested:
+            if m not in allowed:
+                raise HTTPException(status_code=400, detail=f"unknown metric: {m}")
+    else:
+        requested = ["passengers", "revenue", "flights", "load_factor"]
+
+    # Диапазон дат
+    now = datetime.utcnow()
+    def _time_range(name: str):
+        if name == "today":
+            start = datetime(now.year, now.month, now.day)
+            end = start + timedelta(days=1)
+        elif name == "week":
+            start = now - timedelta(days=7)
+            end = now
+        elif name == "month":
+            start = now - timedelta(days=30)
+            end = now
+        else:
+            return None, None
+        return start, end
+
+    start, end = _time_range(range)
+    # Для all определяем минимум по данным
+    if range == "all":
+        # Минимумы
+        min_ticket_dt = db.query(func.min(Ticket.purchased_at)).scalar()
+        min_flight_dt = db.query(func.min(Flight.departure)).scalar()
+        earliest = None
+        for dt in (min_ticket_dt, min_flight_dt):
+            if dt and (earliest is None or dt < earliest):
+                earliest = dt
+        if earliest is None:
+            # Нет данных
+            return {"range": range, "granularity": granularity, "metrics": requested, "points": []}
+        # Ограничим limit_days
+        if (now - earliest).days > limit_days:
+            start = now - timedelta(days=limit_days)
+        else:
+            start = earliest
+        end = now
+    if start is None or end is None:
+        # safety (если range не all и не распознан)
+        start = now - timedelta(days=7)
+        end = now
+
+    # Нормализуем к началу дня
+    start_day = datetime(start.year, start.month, start.day)
+    end_day = datetime(end.year, end.month, end.day)
+    if end_day < end:
+        # включим текущий день
+        end_day = end_day
+
+    # Агрегация билетов (passengers / seats_sold / revenue)
+    tickets_q = db.query(
+        func.date(Ticket.purchased_at).label("d"),
+        func.count(Ticket.id).label("passengers"),
+        func.coalesce(func.sum(Ticket.price_paid), 0).label("revenue"),
+    ).filter(Ticket.status == "paid", Ticket.purchased_at >= start_day, Ticket.purchased_at <= end)
+    tickets_rows = tickets_q.group_by(func.date(Ticket.purchased_at)).all()
+    tickets_map = {str(r.d): r for r in tickets_rows}
+
+    # Агрегация рейсов (flights / seats_capacity)
+    flights_q = db.query(
+        func.date(Flight.departure).label("d"),
+        func.count(Flight.id).label("flights"),
+        func.coalesce(func.sum(Flight.seats_total), 0).label("seats_capacity"),
+    ).filter(Flight.departure >= start_day, Flight.departure <= end)
+    flights_rows = flights_q.group_by(func.date(Flight.departure)).all()
+    flights_map = {str(r.d): r for r in flights_rows}
+
+    # Построим шкалу дней
+    days = []
+    cursor = start_day
+    # включительно до end_day
+    while cursor.date() <= end.date():
+        days.append(cursor.strftime("%Y-%m-%d"))
+        cursor = cursor + timedelta(days=1)
+
+    points = []
+    for day in days:
+        tr = tickets_map.get(day)
+        fr = flights_map.get(day)
+        passengers_val = int(getattr(tr, "passengers", 0) or 0)
+        revenue_val = float(getattr(tr, "revenue", 0) or 0)
+        flights_val = int(getattr(fr, "flights", 0) or 0)
+        capacity_val = int(getattr(fr, "seats_capacity", 0) or 0)
+        seats_sold_val = passengers_val  # paid tickets = sold seats
+        load_factor_val = float(seats_sold_val) / capacity_val if capacity_val else 0.0
+        values = {}
+        if "passengers" in requested: values["passengers"] = passengers_val
+        if "revenue" in requested: values["revenue"] = revenue_val
+        if "flights" in requested: values["flights"] = flights_val
+        if "seats_sold" in requested: values["seats_sold"] = seats_sold_val
+        if "seats_capacity" in requested: values["seats_capacity"] = capacity_val
+        if "load_factor" in requested: values["load_factor"] = load_factor_val
+        points.append({"date": day, "values": values})
+
+    return {
+        "range": range,
+        "granularity": granularity,
+        "metrics": requested,
+        "points": points,
+        "from": days[0] if days else None,
+        "to": days[-1] if days else None,
     }
 
 

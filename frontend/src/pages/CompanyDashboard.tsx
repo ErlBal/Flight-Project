@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { decodeToken } from '../lib/authClaims'
 import api, { extractErrorMessage } from '../lib/api'
 
@@ -74,13 +74,44 @@ export default function CompanyDashboard() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [isManager, setIsManager] = useState(false)
   const [flightFilter, setFlightFilter] = useState<'all'|'active'|'completed'>('all')
+  const [adjustingSeats, setAdjustingSeats] = useState<Record<number, boolean>>({})
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [sort, setSort] = useState('departure_asc')
+  const [total, setTotal] = useState(0)
+  const [pages, setPages] = useState(1)
+  const [gotoPage, setGotoPage] = useState('')
+  // Кэш первой страницы: ключ -> { ts, data }
+  const firstPageCache = useRef<Record<string, { ts:number; data:any }>>({})
 
   const load = async () => {
     setLoading(true)
     setError(null)
     try {
-      const r = await api.get('/company/flights')
-      setFlights(r.data || [])
+      const params = { page, page_size: pageSize, sort, status: flightFilter }
+      // Ключ кэша только для page=1
+      if(page === 1){
+        const cacheKey = JSON.stringify(params)
+        const cached = firstPageCache.current[cacheKey]
+        const now = Date.now()
+        if(cached && (now - cached.ts) < 30_000){
+          const data = cached.data || {}
+          setFlights(data.items || [])
+          setTotal(data.total || 0)
+            setPages(data.pages || 1)
+          setLoading(false)
+          return
+        }
+      }
+      const r = await api.get('/company/flights', { params })
+      const data = r.data || {}
+      setFlights(data.items || [])
+      setTotal(data.total || 0)
+      setPages(data.pages || 1)
+      if(page === 1){
+        const cacheKey = JSON.stringify(params)
+        firstPageCache.current[cacheKey] = { ts: Date.now(), data }
+      }
     } catch (e: any) {
   setError(extractErrorMessage(e?.response?.data) || 'Failed to load flights')
     } finally {
@@ -133,7 +164,7 @@ export default function CompanyDashboard() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [page, pageSize, sort, flightFilter])
   useEffect(() => { loadStats() }, [statsRange])
   useEffect(() => { loadCompanyInfo() }, [])
   useEffect(() => {
@@ -213,13 +244,29 @@ export default function CompanyDashboard() {
   } finally { setDeleting((prev: Record<number, boolean>)=>({ ...prev, [fid]: false })) }
   }
 
-  const nowIso = new Date().toISOString()
-  const filteredFlights = flights.filter(f => {
-    if (flightFilter === 'all') return true
-    if (flightFilter === 'active') return f.departure > nowIso
-    if (flightFilter === 'completed') return f.departure <= nowIso
-    return true
-  })
+  const adjustSeats = async (fid:number, delta:number) => {
+    // Optimistic update with boundary checks
+    setAdjustingSeats(p => ({ ...p, [fid]: true }))
+    setFlights(fs => fs.map(f => {
+      if (f.id !== fid) return f
+      const newAvail = Math.min(f.seats_total, Math.max(0, f.seats_available + delta))
+      return { ...f, seats_available: newAvail }
+    }))
+    try {
+      await api.post(`/company/flights/${fid}/seats-adjust`, null, { params: { delta } })
+      // Stats may change (revenue, sold seats)
+      await loadStats()
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Adjust failed')
+      // Re-sync from backend if failed
+      await load(); await loadStats();
+    } finally {
+      setAdjustingSeats(p => ({ ...p, [fid]: false }))
+    }
+  }
+
+  // Сервер уже фильтрует, просто отображаем
+  const filteredFlights = flights
 
   return (
     <div style={{ padding: 12 }}>
@@ -267,11 +314,47 @@ export default function CompanyDashboard() {
         </>
       )}
   <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? `${companyNames[0]} flights` : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
-  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10, alignItems:'center' }}>
     {(['all','active','completed'] as const).map(filt => (
-      <button key={filt} onClick={()=>setFlightFilter(filt)} style={{ padding:'4px 10px', border:'1px solid '+(flightFilter===filt?'#1d3557':'#cbd5e1'), background:flightFilter===filt?'#1d3557':'#f1f5f9', color:flightFilter===filt?'#fff':'#1e293b', borderRadius:20, fontSize:12 }}>{filt}</button>
+      <button key={filt} onClick={()=>{ setFlightFilter(filt); setPage(1) }} style={{ padding:'4px 10px', border:'1px solid '+(flightFilter===filt?'#1d3557':'#cbd5e1'), background:flightFilter===filt?'#1d3557':'#f1f5f9', color:flightFilter===filt?'#fff':'#1e293b', borderRadius:20, fontSize:12 }}>{filt}</button>
     ))}
-    <span style={{ fontSize:12, opacity:.7 }}>Showing {filteredFlights.length}/{flights.length}</span>
+    <span style={{ fontSize:12, opacity:.7 }}>Showing {filteredFlights.length} / {total}</span>
+    <label style={{ fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
+      Sort:
+      <select value={sort} onChange={e=>{ setSort(e.target.value); setPage(1) }} style={{ fontSize:12 }}>
+        <option value='departure_asc'>Departure ↑</option>
+        <option value='departure_desc'>Departure ↓</option>
+        <option value='arrival_asc'>Arrival ↑</option>
+        <option value='arrival_desc'>Arrival ↓</option>
+        <option value='price_asc'>Price ↑</option>
+        <option value='price_desc'>Price ↓</option>
+        <option value='seats_available_desc'>Seats avail ↓</option>
+        <option value='seats_available_asc'>Seats avail ↑</option>
+        <option value='created_desc'>Created ↓</option>
+        <option value='revenue_est_desc'>Revenue est ↓</option>
+        <option value='revenue_est_asc'>Revenue est ↑</option>
+      </select>
+    </label>
+    <label style={{ fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
+      Page size:
+      <select value={pageSize} onChange={e=>{ setPageSize(Number(e.target.value)); setPage(1) }} style={{ fontSize:12 }}>
+        {[10,25,50,100].map(s=> <option key={s} value={s}>{s}</option>)}
+      </select>
+    </label>
+    <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+      <button type='button' disabled={loading || page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Prev</button>
+      <span style={{ fontSize:12 }}>Page {page}/{pages}</span>
+      <button type='button' disabled={loading || page>=pages} onClick={()=>setPage(p=>Math.min(pages,p+1))}>Next</button>
+    </div>
+    <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+      <span style={{ fontSize:12 }}>Go to:</span>
+      <input value={gotoPage} placeholder='№' style={{ width:54, padding:'2px 4px', fontSize:12 }}
+        onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setGotoPage(v) }}
+        onKeyDown={e=>{ if(e.key==='Enter'){ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n) } }} }
+      />
+      <button type='button' disabled={!gotoPage || Number(gotoPage)<1 || Number(gotoPage)>pages} onClick={()=>{ const n=Number(gotoPage); if(n>=1 && n<=pages) setPage(n) }}>Go</button>
+    </div>
+    <button type='button' onClick={load} disabled={loading} style={{ fontSize:12 }}>Reload</button>
   </div>
   {loading && <p>Loading...</p>}
   {error && <p style={{ color:'red' }}>{error}</p>}
@@ -298,6 +381,33 @@ export default function CompanyDashboard() {
               <button onClick={() => togglePassengers(f.id)}>
                 {passengers[f.id] ? 'Hide passengers' : 'Passengers'}
               </button>
+              <div style={{ display:'flex', gap:2 }}>
+                <button type='button' title='-1 seat' onClick={()=>adjustSeats(f.id,-1)} disabled={adjustingSeats[f.id] || f.seats_available<=0}>-1</button>
+                <button type='button' title='+1 seat' onClick={()=>adjustSeats(f.id,1)} disabled={adjustingSeats[f.id] || f.seats_available>=f.seats_total}>+1</button>
+                <button type='button' title='+5 seats' onClick={()=>adjustSeats(f.id,5)} disabled={adjustingSeats[f.id] || f.seats_available+5>f.seats_total}>+5</button>
+              </div>
+              <div style={{ display:'flex', gap:4 }}>
+                <button type='button' onClick={async ()=>{
+                  try {
+                    const r = await api.get(`/company/flights/${f.id}/passengers/export`, { params:{ fmt:'csv' }, responseType:'blob' })
+                    const blob = new Blob([r.data], { type: 'text/csv' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url; a.download = `passengers_f${f.id}.csv`; a.click()
+                    URL.revokeObjectURL(url)
+                  } catch {}
+                }}>CSV</button>
+                <button type='button' onClick={async ()=>{
+                  try {
+                    const r = await api.get(`/company/flights/${f.id}/passengers/export`, { params:{ fmt:'xlsx' }, responseType:'blob' })
+                    const blob = new Blob([r.data], { type: 'application/vnd.ms-excel' })
+                    const url = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = url; a.download = `passengers_f${f.id}.xml`; a.click()
+                    URL.revokeObjectURL(url)
+                  } catch {}
+                }}>Excel</button>
+              </div>
               <button onClick={() => startEdit(f)} disabled={editingId===f.id}>Edit</button>
               <button onClick={() => deleteFlight(f.id)} disabled={deleting[f.id]}> {deleting[f.id] ? '...' : 'Delete'} </button>
             </div>
