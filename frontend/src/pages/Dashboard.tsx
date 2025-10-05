@@ -97,83 +97,57 @@ export default function Dashboard() {
 
 interface FlightsProps { tickets: Ticket[]; reload: () => Promise<void> }
 function Flights({ tickets, reload }: FlightsProps) {
-  // Filter future flights with status paid/refunded (refunded might not actually fly but kept for history; could restrict to only paid if desired)
   const now = Date.now()
   const future = tickets.filter(t => (t.status === 'paid' || t.status === 'refunded') && t.flight?.departure)
     .map(t => ({ t, depTs: Date.parse(t.flight!.departure) }))
     .filter(x => x.depTs > now)
     .sort((a,b)=> a.depTs - b.depTs)
-
-  if (future.length === 0) return <div style={{ margin:'12px 0' }}><h3>Flights</h3><p style={{ fontSize:14, opacity:.8 }}>No upcoming flights.</p></div>
-
-  // Pagination over flattened list (date groups rebuilt after slicing)
   const PAGE_SIZE = 25
   const [page, setPage] = React.useState(1)
   const totalPages = Math.max(1, Math.ceil(future.length / PAGE_SIZE))
   const start = (page - 1) * PAGE_SIZE
   const slice = future.slice(start, start + PAGE_SIZE)
-
-  // Re-group sliced subset by day for rendering
   const subsetGroups: Record<string, typeof slice> = {}
-  slice.forEach(f => {
-    const d = new Date(f.depTs).toISOString().slice(0,10)
-    ;(subsetGroups[d] = subsetGroups[d] || []).push(f)
-  })
+  slice.forEach(f => { const d = new Date(f.depTs).toISOString().slice(0,10); (subsetGroups[d] = subsetGroups[d] || []).push(f) })
   const subsetOrder = Object.keys(subsetGroups).sort()
-
-  // Group by date (YYYY-MM-DD)
-  const groups: Record<string, typeof future> = {}
-  future.forEach(f => {
-    const d = new Date(f.depTs).toISOString().slice(0,10)
-    ;(groups[d] = groups[d] || []).push(f)
-  })
-  const order = Object.keys(groups).sort()
-
+  const [open, setOpen] = React.useState<Record<string, boolean>>({})
+  if (future.length === 0) return <div style={{ margin:'12px 0' }}><h3>Flights</h3><p style={{ fontSize:14, opacity:.8 }}>No upcoming flights.</p></div>
   return (
     <div style={{ margin:'12px 0' }}>
-  <h3>Flights</h3>
+      <h3>Flights</h3>
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
         {subsetOrder.map(day => (
           <div key={day} style={{ border:'1px solid #ddd', borderRadius:6, padding:10 }}>
             <div style={{ fontSize:13, fontWeight:600, marginBottom:6 }}>{day}</div>
             <ul style={{ listStyle:'none', padding:0, margin:0, display:'flex', flexDirection:'column', gap:8 }}>
               {subsetGroups[day].map(({ t, depTs }) => {
-                const nowMs = Date.now()
-                const msLeft = depTs - nowMs
+                const nowMs = Date.now(); const msLeft = depTs - nowMs
                 const canCancel = t.status === 'paid' && msLeft > 24 * 3600 * 1000
                 const within24h = t.status === 'paid' && msLeft <= 24 * 3600 * 1000 && msLeft > 0
+                const isOpen = open[t.confirmation_id]
                 return (
                   <li key={t.confirmation_id} style={{ display:'flex', flexDirection:'column', gap:4, paddingBottom:4, borderBottom:'1px dashed #eee' }}>
-                    <div style={{ fontSize:14, display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:8 }}>
+                    <button onClick={() => setOpen(o=>({...o, [t.confirmation_id]: !isOpen}))} style={{ all:'unset', cursor:'pointer', fontSize:14, display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:8 }}>
                       <span><strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}</span>
-                      {canCancel && (
-                        <button
-                          style={{ fontSize:11, padding:'3px 8px', cursor:'pointer' }}
-                          onClick={async () => {
-                            try {
-                              await api.post(`/tickets/${t.confirmation_id}/cancel`)
-                              await reload()
-                            } catch(e:any){
-                              alert(extractErrorMessage(e?.response?.data) || 'Cancel failed')
-                            }
-                          }}
-                        >Cancel</button>
-                      )}
-                      {within24h && (
-                        <span
-                          style={{ fontSize:11, background:'#fee2e2', color:'#991b1b', padding:'2px 6px', borderRadius:4 }}
-                          title='Cannot cancel within 24 hours before departure'
-                        >Cannot cancel &lt;24h</span>
-                      )}
-                      {t.status === 'refunded' && <span style={{ fontSize:11, background:'#dcfce7', color:'#166534', padding:'2px 6px', borderRadius:4 }}>Refunded</span>}
-                      {t.status === 'canceled' && <span style={{ fontSize:11, background:'#f1f5f9', color:'#475569', padding:'2px 6px', borderRadius:4 }}>Canceled</span>}
-                    </div>
-                    <div style={{ fontSize:12, opacity:.75 }}>
-                      Dep: {new Date(depTs).toLocaleString()} | Status: {t.status} | Ticket: {t.confirmation_id}
-                    </div>
+                      <span style={{ fontSize:11, opacity:.7 }}>{isOpen ? '▲' : '▼'}</span>
+                    </button>
+                    <div style={{ fontSize:12, opacity:.75 }}>Dep: {new Date(depTs).toLocaleString()} | Status: {t.status} | Ticket: {t.confirmation_id}</div>
+                    {isOpen && (
+                      <div style={{ marginTop:6, fontSize:12, background:'#f8fafc', padding:8, border:'1px solid #e2e8f0', borderRadius:6 }}>
+                        <div style={{ display:'flex', flexWrap:'wrap', gap:8, alignItems:'center' }}>
+                          {canCancel && (
+                            <button style={{ fontSize:11, padding:'3px 8px', cursor:'pointer' }} onClick={async () => { try { await api.post(`/tickets/${t.confirmation_id}/cancel`); await reload() } catch(e:any){ alert(extractErrorMessage(e?.response?.data) || 'Cancel failed') } }}>Cancel</button>
+                          )}
+                          {within24h && (<span style={{ fontSize:11, background:'#fee2e2', color:'#991b1b', padding:'2px 6px', borderRadius:4 }}>Cannot cancel &lt;24h</span>)}
+                          {t.status === 'refunded' && <span style={{ fontSize:11, background:'#dcfce7', color:'#166534', padding:'2px 6px', borderRadius:4 }}>Refunded</span>}
+                          {t.status === 'canceled' && <span style={{ fontSize:11, background:'#f1f5f9', color:'#475569', padding:'2px 6px', borderRadius:4 }}>Canceled</span>}
+                        </div>
+                        {t.flight && (<div style={{ marginTop:6 }}><div>Arrival: {new Date(t.flight.arrival).toLocaleString()}</div></div>)}
+                        <div style={{ marginTop:6, fontSize:11, opacity:.6 }}>Для расширенного управления (custom reminder) открой страницу My Tickets.</div>
+                      </div>
+                    )}
                   </li>
-                )
-              })}
+                )})}
             </ul>
           </div>
         ))}
