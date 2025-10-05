@@ -77,24 +77,7 @@ export default function Dashboard() {
   return (
     <div>
   <h2>My Flights</h2>
-      {userInfo && (
-        <div style={{ background:'#f6f6f6', padding:8, marginBottom:12, fontSize:14 }}>
-          {(() => {
-            const isPriv = userInfo.roles.includes('admin') || userInfo.roles.includes('company_manager')
-            const email = userInfo.email
-            const masked = (() => {
-              if (!isPriv) return email
-              const [local, domain] = email.split('@')
-              if (!domain) return email
-              const show = local.slice(0, 2)
-              return `${show}${'*'.repeat(Math.max(1, local.length - 2))}@${domain}`
-            })()
-            const rolesLabel = isPriv ? 'privileged' : (userInfo.roles.join(', ') || '—')
-            return <>User: <strong>{masked}</strong> | Roles: {rolesLabel}</>
-          })()}
-          <button style={{ marginLeft:12 }} onClick={() => { localStorage.removeItem('auth_token'); location.href = '/login' }}>Logout</button>
-        </div>
-      )}
+      {/* User info panel removed as per request */}
   <Flights tickets={tickets} />
       {loading && <p>Loading...</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -129,16 +112,41 @@ function Flights({ tickets }: { tickets: Ticket[] }) {
           <div key={day} style={{ border:'1px solid #ddd', borderRadius:6, padding:10 }}>
             <div style={{ fontSize:13, fontWeight:600, marginBottom:6 }}>{day}</div>
             <ul style={{ listStyle:'none', padding:0, margin:0, display:'flex', flexDirection:'column', gap:8 }}>
-              {groups[day].map(({ t, depTs }) => (
-                <li key={t.confirmation_id} style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                  <div style={{ fontSize:14 }}>
-                    <strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}
-                  </div>
-                  <div style={{ fontSize:12, opacity:.75 }}>
-                    Dep: {new Date(depTs).toLocaleString()} | Status: {t.status} | Ticket: {t.confirmation_id}
-                  </div>
-                </li>
-              ))}
+              {groups[day].map(({ t, depTs }) => {
+                const nowMs = Date.now()
+                const msLeft = depTs - nowMs
+                const canCancel = t.status === 'paid' && msLeft > 24 * 3600 * 1000
+                const within24h = t.status === 'paid' && msLeft <= 24 * 3600 * 1000 && msLeft > 0
+                return (
+                  <li key={t.confirmation_id} style={{ display:'flex', flexDirection:'column', gap:4, paddingBottom:4, borderBottom:'1px dashed #eee' }}>
+                    <div style={{ fontSize:14, display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:8 }}>
+                      <span><strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}</span>
+                      {canCancel && (
+                        <button
+                          style={{ fontSize:11, padding:'3px 8px', cursor:'pointer' }}
+                          onClick={async () => {
+                            try {
+                              await api.post(`/tickets/${t.confirmation_id}/cancel`)
+                              // naive reload
+                              location.reload()
+                            } catch(e:any){
+                              alert(extractErrorMessage(e?.response?.data) || 'Cancel failed')
+                            }
+                          }}
+                        >Cancel</button>
+                      )}
+                      {within24h && (
+                        <span style={{ fontSize:11, background:'#fee2e2', color:'#991b1b', padding:'2px 6px', borderRadius:4 }}>Cannot cancel &lt;24h</span>
+                      )}
+                      {t.status === 'refunded' && <span style={{ fontSize:11, background:'#dcfce7', color:'#166534', padding:'2px 6px', borderRadius:4 }}>Refunded</span>}
+                      {t.status === 'canceled' && <span style={{ fontSize:11, background:'#f1f5f9', color:'#475569', padding:'2px 6px', borderRadius:4 }}>Canceled</span>}
+                    </div>
+                    <div style={{ fontSize:12, opacity:.75 }}>
+                      Dep: {new Date(depTs).toLocaleString()} | Status: {t.status} | Ticket: {t.confirmation_id}
+                    </div>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         ))}

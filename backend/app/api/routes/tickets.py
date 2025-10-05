@@ -48,7 +48,7 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
     if not flight:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Flight not found")
 
-    # Атомарное списание мест (Postgres only): используем UPDATE ... WHERE ... RETURNING
+    # Atomic seat decrement (Postgres) using UPDATE ... WHERE ... RETURNING to avoid race conditions
     dialect_name = db.bind.dialect.name if db.bind else ""
     upd = db.execute(
         text(
@@ -68,7 +68,7 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough seats available")
 
-    # Нужны актуальные данные цены -> если мы делали raw UPDATE в Postgres, у нас объект flight в сессии может быть устаревшим
+    # Refresh flight to ensure we have the latest price after raw UPDATE (avoid stale in-session object)
     db.refresh(flight)
 
     confirmations = []
@@ -144,23 +144,33 @@ def get_ticket(confirmation_id: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/{confirmation_id}/cancel")
-def cancel_ticket(confirmation_id: str, db: Session = Depends(get_db)):
+def cancel_ticket(confirmation_id: str, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    """Cancel a ticket.
+
+    Rules:
+    - Only the owner of the ticket can cancel (basic security hardening).
+    - If flight departure is within 24 hours -> cancellation is forbidden (HTTP 400).
+    - If >24h: seat is returned (status -> refunded).
+    - If already refunded/canceled: idempotent return of current status.
+    """
+    email, roles = identity
     t = db.query(Ticket).filter(Ticket.confirmation_id == confirmation_id).first()
     if not t:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+    if t.user_email.lower() != email.lower():
+        # Allow privileged roles (admin/company_manager) to cancel? For now, only owner.
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     f = db.get(Flight, t.flight_id)
     if not f:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid flight")
-    now = datetime.utcnow()
-    time_left = f.departure - now
     if t.status not in ("paid",):
         return {"status": t.status}
+    now = datetime.utcnow()
+    time_left = f.departure - now
     if time_left < timedelta(hours=24):
-        # late cancellation: mark canceled (no seat return)
-        t.status = "canceled"
-    else:
-        # early cancellation: refund & return seat
-        f.seats_available += 1
-        t.status = "refunded"
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot cancel within 24 hours of departure")
+    # Early cancellation: return seat & mark refunded
+    f.seats_available += 1
+    t.status = "refunded"
     db.commit()
     return {"status": t.status}
