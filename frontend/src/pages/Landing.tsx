@@ -75,34 +75,38 @@ export default function Landing() {
   }, [])
 
   const [sideBanners, setSideBanners] = useState<any[]>([])
-  const [rotIndexLeft, setRotIndexLeft] = useState(0)
-  const [rotIndexRight, setRotIndexRight] = useState(0)
+  const [leftActive, setLeftActive] = useState(0)
+  const [rightActive, setRightActive] = useState(0)
 
   useEffect(() => {
-    // загружаем баннеры (используем тот же публичный эндпоинт)
     api.get('/content/banners').then(r => {
       const arr = Array.isArray(r.data) ? r.data : []
       setSideBanners(arr)
     }).catch(()=>{})
   }, [])
 
+  // Разбивка списков для левой/правой колонок
+  const leftSet: any[] = []
+  const rightSet: any[] = []
+  if (sideBanners.length <= 1) {
+    leftSet.push(...sideBanners)
+  } else if (sideBanners.length === 2) {
+    leftSet.push(sideBanners[0]); rightSet.push(sideBanners[1])
+  } else {
+    // >=3 -> делим по чётности индекса для разнообразия
+    sideBanners.forEach((b, i) => { (i % 2 === 0 ? leftSet : rightSet).push(b) })
+    // если одна колонка получилась пустой (теоретически при length==3 даёт 2/1 - норм)
+    if (!rightSet.length) { rightSet.push(...leftSet.splice(Math.ceil(leftSet.length/2))) }
+  }
+
   useEffect(() => {
-    if (!sideBanners.length) return
+    if (!leftSet.length && !rightSet.length) return
     const iv = setInterval(() => {
-      setRotIndexLeft(i => (i + 1) % sideBanners.length)
-      setRotIndexRight(i => (i + 2) % sideBanners.length) // сдвиг другой колонки
+      if (leftSet.length) setLeftActive(i => (i + 1) % leftSet.length)
+      if (rightSet.length) setRightActive(i => (i + 1) % rightSet.length)
     }, 15000)
     return () => clearInterval(iv)
   }, [sideBanners])
-
-  const leftShown = sideBanners.slice(rotIndexLeft, rotIndexLeft + 3)
-  if (leftShown.length < 3 && sideBanners.length >= 3) {
-    leftShown.push(...sideBanners.slice(0, 3 - leftShown.length))
-  }
-  const rightShown = sideBanners.slice(rotIndexRight, rotIndexRight + 3)
-  if (rightShown.length < 3 && sideBanners.length >= 3) {
-    rightShown.push(...sideBanners.slice(0, 3 - rightShown.length))
-  }
 
   return (
     <div style={pageWrap}>
@@ -116,11 +120,15 @@ export default function Landing() {
 
       <div style={sideLayout}>
         <div style={sideCol}>
-          {leftShown.map((b:any) => (
-            <a key={b.id} href={b.link_url || '#'} style={sideBannerBox} title={b.title}>
-              {b.image_url ? <img src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
-            </a>
-          ))}
+          {leftSet.map((b:any, idx:number) => {
+            const active = idx === leftActive
+            return (
+              <a key={b.id+':L'} href={b.link_url || '#'} style={{ ...sideBannerBoxBase, ...(active ? sideBannerBoxActiveExtra : {}) }} title={b.title}>
+                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
+                <div style={{ position:'absolute', left:6, top:6, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, padding:'2px 6px', borderRadius:12, letterSpacing:'.5px', textTransform:'uppercase' }}>{active ? 'Active' : ' '}</div>
+              </a>
+            )
+          })}
         </div>
 
         <div>
@@ -185,11 +193,15 @@ export default function Landing() {
         </div>
 
         <div style={sideCol}>
-          {rightShown.map((b:any) => (
-            <a key={b.id} href={b.link_url || '#'} style={sideBannerBox} title={b.title}>
-              {b.image_url ? <img src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
-            </a>
-          ))}
+          {rightSet.map((b:any, idx:number) => {
+            const active = idx === rightActive
+            return (
+              <a key={b.id+':R'} href={b.link_url || '#'} style={{ ...sideBannerBoxBase, ...(active ? sideBannerBoxActiveExtra : {}) }} title={b.title}>
+                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
+                <div style={{ position:'absolute', left:6, top:6, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, padding:'2px 6px', borderRadius:12, letterSpacing:'.5px', textTransform:'uppercase' }}>{active ? 'Active' : ' '}</div>
+              </a>
+            )
+          })}
         </div>
       </div>
 
@@ -290,5 +302,6 @@ const qtyInput: React.CSSProperties = { width:54, fontSize:12, padding:'3px 4px'
 const buyBtn: React.CSSProperties = { fontSize:12, background:'#1d3557', color:'#fff', border:'none', borderRadius:4, padding:'5px 10px', cursor:'pointer' }
 
 const sideLayout: React.CSSProperties = { display:'grid', gridTemplateColumns:'160px 1fr 160px', gap:24, alignItems:'start', marginTop:32 }
-const sideCol: React.CSSProperties = { display:'flex', flexDirection:'column', gap:16, position:'sticky', top:16 }
-const sideBannerBox: React.CSSProperties = { background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8, height:140, overflow:'hidden', position:'relative', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:8, fontSize:13, textAlign:'center', fontWeight:500 }
+const sideCol: React.CSSProperties = { display:'flex', flexDirection:'column', gap:12, position:'sticky', top:16, maxHeight:520, overflowY:'auto', paddingRight:4 }
+const sideBannerBoxBase: React.CSSProperties = { background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8, height:140, overflow:'hidden', position:'relative', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:8, fontSize:13, textAlign:'center', fontWeight:500, transition:'all .6s ease', opacity:.65, transform:'translateY(6px)' }
+const sideBannerBoxActiveExtra: React.CSSProperties = { opacity:1, transform:'translateY(0)', boxShadow:'0 4px 16px -4px rgba(0,0,0,0.18)', background:'#fff' }
