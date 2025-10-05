@@ -121,9 +121,25 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
             changed_fields[key] = {"old": getattr(f, key), "new": payload[key]}
             setattr(f, key, payload[key])
 
-    # seats_available коррекция если seats_total уменьшено / изменено
+    seats_available_changed = False
     if "seats_total" in changed_fields:
+        # сначала автокоррекция под sold
         f.seats_available = max(0, f.seats_total - sold)
+
+    if "seats_available" in payload:
+        # Разрешаем ручное редактирование с правилами: sold <= seats_available <= seats_total
+        try:
+            new_sa = int(payload["seats_available"])
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid seats_available")
+        if new_sa < sold:
+            raise HTTPException(status_code=400, detail="seats_available cannot be less than sold seats")
+        if new_sa > f.seats_total:
+            raise HTTPException(status_code=400, detail="seats_available cannot exceed seats_total")
+        if f.seats_available != new_sa:
+            seats_available_changed = True
+            changed_fields["seats_available"] = {"old": f.seats_available, "new": new_sa}
+            f.seats_available = new_sa
 
     # Ограничение: price можно менять только для будущего рейса (мы уже гарантировали f.departure > now)
     # seats_available прямой установкой через payload запрещаем (игнорируем), расчет автоматический выше
@@ -179,8 +195,8 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
                 # Если нет текущего loop (например в sync контексте Uvicorn workers) — игнор
                 pass
 
-    # Если seats_total изменилось — пуш обновлённые seats_available
-    if "seats_total" in changed_fields:
+    # Если seats_total или seats_available изменилось — пуш обновлённые seats_available
+    if "seats_total" in changed_fields or seats_available_changed:
         import asyncio
         try:
             asyncio.create_task(ws_manager.broadcast({

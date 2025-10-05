@@ -42,6 +42,7 @@ type FlightEditForm = {
   arrival: string   // local datetime
   price: number | string
   seats_total: number | string
+  seats_available: number | string
 }
 
 export default function CompanyDashboard() {
@@ -72,6 +73,7 @@ export default function CompanyDashboard() {
   const [companyNames, setCompanyNames] = useState<string[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [isManager, setIsManager] = useState(false)
+  const [flightFilter, setFlightFilter] = useState<'all'|'active'|'completed'>('all')
 
   const load = async () => {
     setLoading(true)
@@ -171,6 +173,7 @@ export default function CompanyDashboard() {
       arrival: f.arrival.slice(0,16),
       price: f.price,
       seats_total: f.seats_total,
+      seats_available: f.seats_available,
     })
   }
 
@@ -180,13 +183,20 @@ export default function CompanyDashboard() {
     e.preventDefault(); if(editingId==null || !editForm) return
     setSavingEdit(true)
     try {
-      await api.put(`/company/flights/${editingId}`, {
-        ...editForm,
-        price: Number(editForm.price),
-        seats_total: Number(editForm.seats_total),
+      const payload:any = {
+        airline: editForm.airline,
+        flight_number: editForm.flight_number,
+        origin: editForm.origin,
+        destination: editForm.destination,
         departure: editForm.departure,
         arrival: editForm.arrival,
-      })
+        price: Number(editForm.price),
+        seats_total: Number(editForm.seats_total),
+      }
+      // seats_available валидируем: не больше seats_total
+      const sa = Number(editForm.seats_available)
+      if (!Number.isNaN(sa)) payload.seats_available = Math.min(sa, Number(editForm.seats_total))
+      await api.put(`/company/flights/${editingId}`, payload)
       cancelEdit(); await load(); await loadStats();
     } catch(e:any){
   alert(extractErrorMessage(e?.response?.data) || 'Save failed')
@@ -202,6 +212,14 @@ export default function CompanyDashboard() {
       alert(extractErrorMessage(e?.response?.data) || 'Delete failed')
   } finally { setDeleting((prev: Record<number, boolean>)=>({ ...prev, [fid]: false })) }
   }
+
+  const nowIso = new Date().toISOString()
+  const filteredFlights = flights.filter(f => {
+    if (flightFilter === 'all') return true
+    if (flightFilter === 'active') return f.departure > nowIso
+    if (flightFilter === 'completed') return f.departure <= nowIso
+    return true
+  })
 
   return (
     <div style={{ padding: 12 }}>
@@ -249,10 +267,16 @@ export default function CompanyDashboard() {
         </>
       )}
   <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? `${companyNames[0]} flights` : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
+  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
+    {(['all','active','completed'] as const).map(filt => (
+      <button key={filt} onClick={()=>setFlightFilter(filt)} style={{ padding:'4px 10px', border:'1px solid '+(flightFilter===filt?'#1d3557':'#cbd5e1'), background:flightFilter===filt?'#1d3557':'#f1f5f9', color:flightFilter===filt?'#fff':'#1e293b', borderRadius:20, fontSize:12 }}>{filt}</button>
+    ))}
+    <span style={{ fontSize:12, opacity:.7 }}>Showing {filteredFlights.length}/{flights.length}</span>
+  </div>
   {loading && <p>Loading...</p>}
   {error && <p style={{ color:'red' }}>{error}</p>}
       <ul style={{ listStyle:'none', padding:0 }}>
-        {flights.map((f: CompanyFlight) => (
+        {filteredFlights.map((f: CompanyFlight) => (
           <li key={f.id} style={{ border:'1px solid #ddd', padding:10, marginBottom:8 }}>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
               <strong>{f.flight_number}</strong>
@@ -262,7 +286,14 @@ export default function CompanyDashboard() {
               <span>{f.origin} → {f.destination}</span>
             </div>
             <div>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
-            <div>Price: {f.price} | Seats: {f.seats_available}/{f.seats_total}</div>
+            <div>
+              Price: {f.price} | Seats: {f.seats_available}/{f.seats_total}
+              {(() => {
+                const sold = Math.max(0, f.seats_total - f.seats_available)
+                const rev = sold * f.price
+                return <span style={{ marginLeft:12, fontSize:12, background:'#f1f5f9', padding:'2px 6px', borderRadius:6 }}>Revenue est: <strong>{rev}</strong></span>
+              })()}
+            </div>
             <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
               <button onClick={() => togglePassengers(f.id)}>
                 {passengers[f.id] ? 'Hide passengers' : 'Passengers'}
@@ -281,13 +312,15 @@ export default function CompanyDashboard() {
             )}
             {editingId===f.id && editForm && (
               <form onSubmit={saveEdit} style={{ marginTop:10, display:'grid', gap:6, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
-                <input value={editForm.flight_number} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, flight_number:e.target.value}))} required />
+                <input value={editForm.airline} placeholder='airline' onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, airline:e.target.value}))} required />
+                <input value={editForm.flight_number} placeholder='flight_number' onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, flight_number:e.target.value}))} required />
                 <input value={editForm.origin} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, origin:e.target.value}))} required />
                 <input value={editForm.destination} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, destination:e.target.value}))} required />
                 <input type='datetime-local' value={editForm.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, departure:e.target.value}))} required />
                 <input type='datetime-local' value={editForm.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, arrival:e.target.value}))} required />
                 <input type='number' value={editForm.price} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, price:e.target.value}))} required />
                 <input type='number' value={editForm.seats_total} min={1} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_total:e.target.value}))} required />
+                <input type='number' value={editForm.seats_available} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_available:e.target.value}))} required />
                 <div style={{ display:'flex', gap:8 }}>
                   <button type='submit' disabled={savingEdit}>{savingEdit?'...':'Save'}</button>
                   <button type='button' onClick={cancelEdit}>Cancel</button>
