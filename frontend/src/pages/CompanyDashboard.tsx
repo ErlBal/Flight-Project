@@ -77,7 +77,7 @@ export default function CompanyDashboard() {
       const r = await api.get('/company/flights')
       setFlights(r.data || [])
     } catch (e: any) {
-      setError(extractErrorMessage(e?.response?.data) || 'Ошибка загрузки рейсов')
+  setError(extractErrorMessage(e?.response?.data) || 'Failed to load flights')
     } finally {
       setLoading(false)
     }
@@ -89,7 +89,7 @@ export default function CompanyDashboard() {
       const r = await api.get('/company/stats', { params: { range: statsRange }})
       setStats(r.data)
     } catch(e:any){
-      // тихо
+      // silent fail for stats refresh
     } finally { setLoadingStats(false) }
   }
 
@@ -107,7 +107,7 @@ export default function CompanyDashboard() {
       setForm({ airline: 'DemoAir', flight_number: '', origin: '', destination: '', departure: '', arrival: '', price: 0, seats_total: 0, seats_available: 0, stops: 0 })
       await load()
     } catch (e: any) {
-      alert(extractErrorMessage(e?.response?.data) || 'Ошибка создания')
+  alert(extractErrorMessage(e?.response?.data) || 'Create failed')
     } finally {
       setCreating(false)
     }
@@ -123,7 +123,7 @@ export default function CompanyDashboard() {
       const r = await api.get(`/company/flights/${fid}/passengers`)
       setPassengers((prev: Record<number, Passenger[]>) => ({ ...prev, [fid]: r.data || [] }))
     } catch (e: any) {
-      alert(extractErrorMessage(e?.response?.data) || 'Ошибка пассажиров')
+  alert(extractErrorMessage(e?.response?.data) || 'Passengers load failed')
     } finally {
       setLoadingPassengers((prev: Record<number, boolean>) => ({ ...prev, [fid]: false }))
     }
@@ -163,17 +163,17 @@ export default function CompanyDashboard() {
       })
       cancelEdit(); await load(); await loadStats();
     } catch(e:any){
-      alert(extractErrorMessage(e?.response?.data) || 'Ошибка сохранения')
+  alert(extractErrorMessage(e?.response?.data) || 'Save failed')
     } finally { setSavingEdit(false) }
   }
   const deleteFlight = async (fid:number) => {
-    if(!confirm('Удалить рейс? Все билеты будут возвращены.')) return
+  if(!confirm('Delete flight? All tickets will be refunded.')) return
   setDeleting((prev: Record<number, boolean>)=>({ ...prev, [fid]: true }))
     try {
       await api.delete(`/company/flights/${fid}`)
       await load(); await loadStats();
     } catch(e:any){
-      alert(extractErrorMessage(e?.response?.data) || 'Ошибка удаления')
+      alert(extractErrorMessage(e?.response?.data) || 'Delete failed')
   } finally { setDeleting((prev: Record<number, boolean>)=>({ ...prev, [fid]: false })) }
   }
 
@@ -181,7 +181,7 @@ export default function CompanyDashboard() {
     <div style={{ padding: 12 }}>
       <h2>Company Dashboard</h2>
       <div style={{ border:'1px solid #ddd', padding:12, borderRadius:6, marginBottom:20 }}>
-        <h3 style={{ marginTop:0 }}>Статистика</h3>
+  <h3 style={{ marginTop:0 }}>Statistics</h3>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
           {(['all','today','week','month'] as const).map(r => (
             <button key={r} onClick={()=>setStatsRange(r)} style={{ padding:'4px 10px', border:'1px solid '+(statsRange===r?'#444':'#bbb'), background:statsRange===r?'#444':'#f5f5f5', color:statsRange===r?'#fff':'#222', borderRadius:4 }}>{r}</button>
@@ -201,7 +201,7 @@ export default function CompanyDashboard() {
           </div>
         )}
       </div>
-      <h3>Добавить рейс</h3>
+  <h3>Add flight</h3>
       <form onSubmit={submit} style={{ display:'grid', gap:8, maxWidth:600, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
         {(['flight_number','origin','destination'] as const).map(field => (
           <input
@@ -217,11 +217,11 @@ export default function CompanyDashboard() {
         <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
         <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
         <input type='number' placeholder='stops' value={form.stops} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, stops: e.target.value }))} min={0} />
-        <button type='submit' disabled={creating}>{creating ? '...' : 'Создать'}</button>
+  <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
       </form>
-      <h3 style={{ marginTop:24 }}>Мои рейсы</h3>
-      {loading && <p>Загрузка...</p>}
-      {error && <p style={{ color:'red' }}>{error}</p>}
+  <h3 style={{ marginTop:24 }}>My flights</h3>
+  {loading && <p>Loading...</p>}
+  {error && <p style={{ color:'red' }}>{error}</p>}
       <ul style={{ listStyle:'none', padding:0 }}>
         {flights.map((f: CompanyFlight) => (
           <li key={f.id} style={{ border:'1px solid #ddd', padding:10, marginBottom:8 }}>
@@ -230,15 +230,15 @@ export default function CompanyDashboard() {
             <div>Price: {f.price} | Seats: {f.seats_available}/{f.seats_total}</div>
             <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
               <button onClick={() => togglePassengers(f.id)}>
-                {passengers[f.id] ? 'Скрыть пассажиров' : 'Пассажиры'}
+                {passengers[f.id] ? 'Hide passengers' : 'Passengers'}
               </button>
               <button onClick={() => startEdit(f)} disabled={editingId===f.id}>Edit</button>
               <button onClick={() => deleteFlight(f.id)} disabled={deleting[f.id]}> {deleting[f.id] ? '...' : 'Delete'} </button>
             </div>
-            {loadingPassengers[f.id] && <div>Загрузка списка...</div>}
+            {loadingPassengers[f.id] && <div>Loading list...</div>}
             {passengers[f.id] && !loadingPassengers[f.id] && (
               <ul style={{ marginTop:6 }}>
-                {passengers[f.id].length === 0 && <li>Нет билетов</li>}
+                {passengers[f.id].length === 0 && <li>No tickets</li>}
                 {passengers[f.id].map(p => (
                   <li key={p.confirmation_id}>{p.user_email} — {p.status}</li>
                 ))}

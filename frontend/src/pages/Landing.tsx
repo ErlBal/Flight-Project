@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import BannerSlider from '../components/BannerSlider'
 import QuickSearchForm, { SearchCriteria } from '../components/QuickSearchForm'
@@ -25,6 +25,15 @@ export default function Landing() {
   const [buying, setBuying] = useState<Record<number, boolean>>({})
   const [quantities, setQuantities] = useState<Record<number, number>>({})
   const [toast, setToast] = useState<string|null>(null)
+  const [authed, setAuthed] = useState(false)
+
+  useEffect(() => {
+    // simple auth presence check
+    setAuthed(!!localStorage.getItem('auth_token'))
+    const listener = () => setAuthed(!!localStorage.getItem('auth_token'))
+    window.addEventListener('storage', listener)
+    return () => window.removeEventListener('storage', listener)
+  }, [])
 
   async function runSearch(criteria: SearchCriteria){
     if (!criteria.origin && !criteria.destination && !criteria.date) { setFlights([]); return }
@@ -38,6 +47,7 @@ export default function Landing() {
   }
 
   const buy = async (flightId: number) => {
+    if (!authed) return // guard; button disabled anyway
     if (buying[flightId]) return
     setBuying(b => ({ ...b, [flightId]: true }))
     try {
@@ -46,7 +56,9 @@ export default function Landing() {
       if (res.data.confirmation_ids) setToast(`Purchased ${res.data.quantity} ticket(s)`) 
       else setToast('Ticket purchased')
     } catch(e:any){
-      alert(extractErrorMessage(e?.response?.data) || 'Purchase failed')
+      const msg = extractErrorMessage(e?.response?.data) || 'Purchase failed'
+      if (/unauth/i.test(msg) || /auth/i.test(msg)) setAuthed(false)
+      alert(msg)
     } finally { setBuying(b => ({ ...b, [flightId]: false })) }
   }
 
@@ -96,9 +108,10 @@ export default function Landing() {
                   />
                   <button
                     onClick={()=>buy(f.id)}
-                    disabled={f.seats_available<=0 || buying[f.id]}
-                    style={buyBtn}
-                  >{buying[f.id]?'...':'Buy'}</button>
+                    disabled={!authed || f.seats_available<=0 || buying[f.id]}
+                    style={{ ...buyBtn, background: !authed ? '#64748b' : buyBtn.background, cursor: !authed ? 'not-allowed' : 'pointer', opacity: (!authed || buying[f.id]) ? 0.8 : 1 }}
+                    title={!authed ? 'Login to purchase tickets' : undefined}
+                  >{!authed ? 'Login to buy' : (buying[f.id]?'...':'Buy')}</button>
                 </div>
               </li>
             ))}

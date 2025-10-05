@@ -35,12 +35,7 @@ export default function Dashboard() {
   const [tickets, setTickets] = useState<Ticket[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [flights, setFlights] = useState<Flight[]>([])
-  const [loadingFlights, setLoadingFlights] = useState(true)
-  const [toast, setToast] = useState<string | null>(null)
   const [userInfo, setUserInfo] = useState<{ email: string; roles: string[] } | null>(null)
-  const [quantities, setQuantities] = useState<Record<number, number>>({})
-  const [buying, setBuying] = useState<Record<number, boolean>>({})
 
   const loadTickets = async () => {
     setLoading(true)
@@ -55,53 +50,17 @@ export default function Dashboard() {
     }
   }
 
-  const loadFlights = async () => {
-    setLoadingFlights(true)
-    try {
-      const res = await api.get('/flights', { params: {} })
-      setFlights(res.data.items || [])
-    } catch (err: any) {
-      // ignore errors, list optional
-    } finally {
-      setLoadingFlights(false)
-    }
-  }
-
   const cancel = async (id: string) => {
     try {
       await api.post(`/tickets/${id}/cancel`)
       await loadTickets()
-      await loadFlights()
     } catch (err: any) {
       alert(extractErrorMessage(err?.response?.data) || 'Cancel failed')
     }
   }
 
-  const buy = async (flightId: number) => {
-    if (buying[flightId]) return
-    setBuying((b: Record<number, boolean>) => ({ ...b, [flightId]: true }))
-    try {
-      const quantity = quantities[flightId] || 1
-      const res = await api.post('/tickets', { flight_id: flightId, quantity })
-      await loadTickets()
-      await loadFlights()
-      if (res.data.confirmation_ids) {
-        setToast(`Purchased ${res.data.quantity} ticket(s)`)
-      } else {
-        setToast('Ticket purchased')
-      }
-      // reset quantity back to 1
-  setQuantities((q: Record<number, number>) => ({ ...q, [flightId]: 1 }))
-    } catch (err: any) {
-      alert(extractErrorMessage(err?.response?.data) || 'Purchase failed')
-    }
-    finally {
-  setBuying((b: Record<number, boolean>) => ({ ...b, [flightId]: false }))
-    }
-  }
-
   useEffect(() => {
-    // decode JWT (без внешних либ)
+  // Decode JWT (lightweight manual approach, no external libs)
     try {
       const raw = localStorage.getItem('auth_token')
       if (raw) {
@@ -111,14 +70,13 @@ export default function Dashboard() {
     } catch {}
 
     loadTickets()
-    loadFlights()
   }, [])
 
   // Removed search form logic; flights list can be simplified or repurposed later.
 
   return (
     <div>
-      <h2>My Tickets</h2>
+  <h2>My Flights</h2>
       {userInfo && (
         <div style={{ background:'#f6f6f6', padding:8, marginBottom:12, fontSize:14 }}>
           {(() => {
@@ -137,69 +95,23 @@ export default function Dashboard() {
           <button style={{ marginLeft:12 }} onClick={() => { localStorage.removeItem('auth_token'); location.href = '/login' }}>Logout</button>
         </div>
       )}
-      <h3>Available Flights (quick list)</h3>
-      {loadingFlights && <p>Loading flights...</p>}
-      {!loadingFlights && flights.length === 0 && <p>No flights found.</p>}
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-  {flights.map((f: Flight) => (
-          <li key={f.id} style={{ border: '1px solid #ddd', padding: 10, marginBottom: 6 }}>
-            <div><strong>{f.airline} {f.flight_number}</strong> {f.origin} → {f.destination}</div>
-            <div>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
-            <div>Price: {f.price} | Seats: {f.seats_available}</div>
-            <div style={{ display:'flex', gap:8, alignItems:'center', marginTop:4 }}>
-              <input
-                type="number"
-                min={1}
-                max={Math.min(10, f.seats_available)}
-                value={quantities[f.id] || 1}
-                onChange={e => setQuantities(q => ({ ...q, [f.id]: Math.max(1, Math.min(10, Number(e.target.value) || 1)) }))}
-                style={{ width:60 }}
-                disabled={f.seats_available <= 0}
-              />
-              <button disabled={f.seats_available <= 0 || buying[f.id]} onClick={() => buy(f.id)}>
-                {buying[f.id] ? '...' : 'Buy'}
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-      <hr />
-  {/* Upcoming Flights section */}
-  <UpcomingFlights tickets={tickets} />
-  <hr />
+  <Flights tickets={tickets} />
       {loading && <p>Loading...</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {!loading && !error && tickets.length === 0 && <p>No tickets yet.</p>}
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {tickets.map(t => (
-          <li key={t.confirmation_id} style={{ border: '1px solid #eee', padding: 12, marginBottom: 8 }}>
-            <div><strong>{t.confirmation_id}</strong> — {t.status}</div>
-            <div>Flight: {t.flight_id} | Price: {t.price_paid ?? '-'} | Purchased: {t.purchased_at ?? '-'}</div>
-            {t.status === 'paid' && (
-              <button onClick={() => cancel(t.confirmation_id)}>Cancel</button>
-            )}
-          </li>
-        ))}
-      </ul>
-      {toast && (
-        <div style={{ position:'fixed', bottom:20, right:20, background:'#333', color:'#fff', padding:'8px 14px', borderRadius:4 }}>
-          {toast}
-          <button style={{ marginLeft:10 }} onClick={() => setToast(null)}>x</button>
-        </div>
-      )}
     </div>
   )
 }
 
-function UpcomingFlights({ tickets }: { tickets: Ticket[] }) {
-  // Filter future flights with status paid/refunded (refunded может не лететь, но оставим для истории; можем ограничить только paid)
+function Flights({ tickets }: { tickets: Ticket[] }) {
+  // Filter future flights with status paid/refunded (refunded might not actually fly but kept for history; could restrict to only paid if desired)
   const now = Date.now()
   const future = tickets.filter(t => (t.status === 'paid' || t.status === 'refunded') && t.flight?.departure)
     .map(t => ({ t, depTs: Date.parse(t.flight!.departure) }))
     .filter(x => x.depTs > now)
     .sort((a,b)=> a.depTs - b.depTs)
 
-  if (future.length === 0) return <div style={{ margin:'12px 0' }}><h3>Upcoming Flights</h3><p style={{ fontSize:14, opacity:.8 }}>No upcoming flights.</p></div>
+  if (future.length === 0) return <div style={{ margin:'12px 0' }}><h3>Flights</h3><p style={{ fontSize:14, opacity:.8 }}>No upcoming flights.</p></div>
 
   // Group by date (YYYY-MM-DD)
   const groups: Record<string, typeof future> = {}
@@ -211,7 +123,7 @@ function UpcomingFlights({ tickets }: { tickets: Ticket[] }) {
 
   return (
     <div style={{ margin:'12px 0' }}>
-      <h3>Upcoming Flights</h3>
+  <h3>Flights</h3>
       <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
         {order.map(day => (
           <div key={day} style={{ border:'1px solid #ddd', borderRadius:6, padding:10 }}>
