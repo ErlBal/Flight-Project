@@ -392,8 +392,19 @@ def export_passengers(flight_id: int, fmt: str = Query("csv", pattern="^(csv|xls
     if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
     tickets = db.query(Ticket).filter(Ticket.flight_id == flight_id, Ticket.status == "paid").all()
+    # Дополнительные поля: компания и маршрут (origin, destination)
+    company_name = db.query(Company.name).filter(Company.id == f.company_id).scalar() if f.company_id else ""
     rows = [
-        ["confirmation_id", "user_email", "status", "purchased_at", "price_paid"],
+        [
+            "confirmation_id",
+            "user_email",
+            "status",
+            "purchased_at",
+            "price_paid",
+            "company_name",
+            "origin",
+            "destination",
+        ],
     ]
     for t in tickets:
         rows.append([
@@ -402,6 +413,9 @@ def export_passengers(flight_id: int, fmt: str = Query("csv", pattern="^(csv|xls
             t.status,
             t.purchased_at.isoformat() if t.purchased_at else "",
             str(t.price_paid or 0),
+            company_name,
+            f.origin,
+            f.destination,
         ])
     if fmt == "csv":
         import io, csv

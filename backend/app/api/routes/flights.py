@@ -4,6 +4,7 @@ from sqlalchemy import and_, or_
 
 from app.db.session import get_db
 from app.models.flight import Flight
+from app.models.company import Company
 from app.api.deps import require_roles
 from datetime import datetime
 
@@ -119,6 +120,11 @@ def list_flights(
             flights_filtered.sort(key=lambda x: x.departure, reverse=(sort_dir == "desc"))
         start = (page - 1) * page_size
         items = flights_filtered[start:start + page_size]
+        company_ids = {f.company_id for f in items if getattr(f, 'company_id', None)}
+        company_map = {}
+        if company_ids:
+            for c in db.query(Company).filter(Company.id.in_(company_ids)).all():
+                company_map[c.id] = c.name
         return {"items": [
             {
                 "id": f.id,
@@ -131,6 +137,7 @@ def list_flights(
                 "price": float(f.price),
                 "seats_available": f.seats_available,
                 "stops": f.stops,
+                "company_name": company_map.get(f.company_id) if getattr(f, 'company_id', None) else None,
             } for f in items
         ], "total": total, "page": page, "page_size": page_size}
     total = q.count()
@@ -146,6 +153,11 @@ def list_flights(
     q = q.order_by(order_col)
     offset = (page - 1) * page_size
     items = q.offset(offset).limit(page_size).all()
+    company_ids = {f.company_id for f in items if getattr(f, 'company_id', None)}
+    company_map = {}
+    if company_ids:
+        for c in db.query(Company).filter(Company.id.in_(company_ids)).all():
+            company_map[c.id] = c.name
     return {"items": [
         {
             "id": f.id,
@@ -158,6 +170,7 @@ def list_flights(
             "price": float(f.price),
             "seats_available": f.seats_available,
             "stops": f.stops,
+            "company_name": company_map.get(f.company_id) if getattr(f, 'company_id', None) else None,
         } for f in items
     ], "total": total, "page": page, "page_size": page_size}
 
@@ -167,6 +180,9 @@ def flight_detail(flight_id: int, db: Session = Depends(get_db)):
     if not f:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     duration_minutes = int((f.arrival - f.departure).total_seconds() // 60)
+    company_name = None
+    if getattr(f, 'company_id', None):
+        company_name = db.query(Company.name).filter(Company.id == f.company_id).scalar()
     return {
         "id": f.id,
         "airline": f.airline,
@@ -179,6 +195,7 @@ def flight_detail(flight_id: int, db: Session = Depends(get_db)):
         "seats_available": f.seats_available,
         "stops": f.stops,
         "duration_minutes": duration_minutes,
+        "company_name": company_name,
         "layovers": [],  # placeholder for future implementation
     }
 
