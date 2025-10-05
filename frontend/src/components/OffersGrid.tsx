@@ -131,7 +131,9 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
                     {parsed.origin && parsed.destination && <span>{parsed.origin} → {parsed.destination}</span>}
                     {parsed.origin && !parsed.destination && <span>{parsed.origin}</span>}
                     {parsed.destination && !parsed.origin && <span>{parsed.destination}</span>}
-                    {dateLabel && <span style={{ opacity:.8 }}> | {dateLabel}</span>}
+                    {dateLabel && (
+                      <span style={{ marginLeft:6, fontSize:12, color:'#374151', fontWeight:500 }}>| {dateLabel}</span>
+                    )}
                   </div>
                 )}
                 {o.tag && tagColor && (
@@ -185,9 +187,9 @@ const gridFixed3: React.CSSProperties = {
 const cardStyle: React.CSSProperties = {
   background:'#fff',
   border:'1px solid #e2e8f0',
-  padding:'6px 8px 8px',
+  padding:'10px 12px 12px',
   borderRadius:10,
-  fontSize:12.5,
+  fontSize:13.5,
   boxShadow:'0 1px 2px rgba(0,0,0,0.04)',
   display:'flex',
   flexDirection:'column',
@@ -199,13 +201,13 @@ const cardStyle: React.CSSProperties = {
   transition:'transform .28s cubic-bezier(.4,.2,.2,1), box-shadow .32s ease',
   animation:'offerFade .55s ease backwards',
   position:'relative',
-  paddingBottom:34
+  paddingBottom:40
 }
 
 const subtitleStyle: React.CSSProperties = {
-  fontSize:10.5,
+  fontSize:12,
   color:'#475569',
-  lineHeight:1.25
+  lineHeight:1.35
 }
 
 const bottomRow: React.CSSProperties = {
@@ -238,17 +240,18 @@ const searchFixedBtn: React.CSSProperties = {
   position:'absolute',
   bottom:8,
   right:8,
-  fontSize:11,
-  background:'#1d3557',
-  color:'#fff',
-  padding:'4px 10px',
-  borderRadius:6
+  fontSize:12,
+  background:'var(--color-accent)',
+  color:'var(--color-accent-contrast)',
+  padding:'6px 12px',
+  borderRadius:6,
+  fontWeight:600
 }
 const priceFixedSpan: React.CSSProperties = {
   position:'absolute',
-  bottom:10,
-  left:10,
-  fontSize:11
+  bottom:12,
+  left:12,
+  fontSize:12
 }
 
 const tooltipBox: React.CSSProperties = {
@@ -268,14 +271,15 @@ const tooltipBox: React.CSSProperties = {
 const showAllButton: React.CSSProperties = {
   gridColumn:'1 / -1',
   marginTop:12,
-  background:'#1d3557',
-  color:'#fff',
-  border:'none',
-  padding:'10px 16px',
+  background:'var(--color-accent)',
+  color:'var(--color-accent-contrast)',
+  border:'1px solid var(--color-accent)',
+  padding:'10px 18px',
   borderRadius:8,
-  fontSize:13,
+  fontSize:14,
   cursor:'pointer',
-  fontWeight:600
+  fontWeight:600,
+  transition:'background var(--transition-fast)'
 }
 
 const routeInfoTop: React.CSSProperties = {

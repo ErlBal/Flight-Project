@@ -28,6 +28,7 @@ export default function Landing() {
   const [toast, setToast] = useState<string|null>(null)
   const [authed, setAuthed] = useState(false)
   const [prefill, setPrefill] = useState<{origin?: string; destination?: string; date?: string}>({})
+  const [searched, setSearched] = useState(false)
 
   useEffect(() => {
     // simple auth presence check
@@ -39,6 +40,7 @@ export default function Landing() {
 
   async function runSearch(criteria: SearchCriteria){
     if (!criteria.origin && !criteria.destination && !criteria.date) { setFlights([]); return }
+    setSearched(true)
     setLoading(true); setError(null)
     try {
       const r = await api.get('/flights/', { params: criteria })
@@ -127,14 +129,15 @@ export default function Landing() {
         <main className='lp-center-main' style={centerMain}>
           <header style={heroHeader}>
             <div style={{ flex: 1 }}>
-              <h1 style={titleStyle}>FlightProject</h1>
-              <p style={subtitleStyle}>Search, compare and book flights quickly.</p>
+              <h1 className="landing-title">FlightProject</h1>
+              <p className="landing-subtitle">Search, compare and book flights quickly.</p>
             </div>
           </header>
 
           <section>
             <h2 style={sectionTitle}>Quick search</h2>
             <QuickSearchForm onSearch={runSearch} />
+            {searched && (
             <div style={resultsWrapper}>
               <div style={resultsHeaderRow}>
                 <span style={{ fontSize:13, fontWeight:600 }}>Results</span>
@@ -173,7 +176,8 @@ export default function Landing() {
                       <button
                         onClick={()=>buy(f.id)}
                         disabled={!authed || f.seats_available<=0 || buying[f.id]}
-                        style={{ ...buyBtn, background: !authed ? '#64748b' : buyBtn.background, cursor: !authed ? 'not-allowed' : 'pointer', opacity: (!authed || buying[f.id]) ? 0.8 : 1 }}
+                        className='btn'
+                        style={{ padding:'8px 14px', fontSize:14, opacity: (!authed || buying[f.id]) ? .7 : 1 }}
                         title={!authed ? 'Login to purchase tickets' : undefined}
                       >{!authed ? 'Login to buy' : (buying[f.id]?'...':'Buy')}</button>
                     </div>
@@ -181,6 +185,7 @@ export default function Landing() {
                 ))}
               </ul>
             </div>
+            )}
           </section>
 
           <section style={{ marginTop: 56 }}>
@@ -221,10 +226,10 @@ export default function Landing() {
 }
 
 // Новый каркас
-const outerShell: React.CSSProperties = { display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(auto,1320px) minmax(0,1fr)', gap:0, width:'100%', margin:'0 auto', padding:'0 16px' }
-const centerMain: React.CSSProperties = { padding:'32px 40px 80px', position:'relative' }
-const leftRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-start', paddingTop:48 }
-const rightRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-end', paddingTop:48 }
+const outerShell: React.CSSProperties = { display:'flex', width:'100%', justifyContent:'center', gap:40, padding:'0 24px', boxSizing:'border-box', maxWidth:'1700px', margin:'0 auto' }
+const centerMain: React.CSSProperties = { flex:'1 1 auto', maxWidth:1320, padding:'32px 40px 80px', position:'relative' }
+const leftRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-start', paddingTop:48, flex:'0 0 200px' }
+const rightRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-end', paddingTop:48, flex:'0 0 200px' }
 const railBanner: React.CSSProperties = { width:200, height:260, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:12, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', transition:'all .6s ease', opacity:.7 }
 const railBannerActive: React.CSSProperties = { opacity:1, transform:'translateY(-4px)', boxShadow:'0 6px 28px -4px rgba(0,0,0,0.18)', background:'#fff' }
 const bannerImg: React.CSSProperties = { width:'100%', height:'100%', objectFit:'cover' }
@@ -236,20 +241,7 @@ const heroHeader: React.CSSProperties = {
   gap: 24
 }
 
-const titleStyle: React.CSSProperties = {
-  fontSize: 44,
-  lineHeight: 1.05,
-  margin: 0,
-  background: 'linear-gradient(90deg,#1d3557,#457b9d)',
-  WebkitBackgroundClip: 'text',
-  color: 'transparent'
-}
-
-const subtitleStyle: React.CSSProperties = {
-  fontSize: 16,
-  margin: '14px 0 0',
-  color: '#475569'
-}
+// titleStyle & subtitleStyle moved to design tokens classes
 
 const primaryLink: React.CSSProperties = {
   display: 'inline-block',

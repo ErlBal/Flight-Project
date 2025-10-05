@@ -1,0 +1,14 @@
+/* Global layout adjustments to remove unwanted horizontal scroll and default margins */
+html, body, #root { height:100%; }
+html { box-sizing:border-box; }
+*, *::before, *::after { box-sizing:inherit; }
+/* Allow natural horizontal overflow (original layout) but visually hide the horizontal scrollbar */
+body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; overflow-x:auto; background:#fafbfc; scrollbar-width:none; }
+body::-webkit-scrollbar { height:0; background:transparent; }
+body::-webkit-scrollbar-track { background:transparent; }
+body::-webkit-scrollbar-thumb { background:transparent; }
+:root { --app-max-width: 1320px; }
+.app-shell { max-width: var(--app-max-width); margin:0 auto; padding:0 16px 40px; }
+
+/* Utility */
+.no-scroll-x { overflow-x:hidden !important; }

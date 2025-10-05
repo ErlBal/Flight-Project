@@ -157,18 +157,19 @@ export default function NotificationsBell({ onAnyAction }: Props) {
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      <button onClick={toggleOpen} style={{ position: 'relative', padding: '4px 10px' }} title='Уведомления'>
-        🔔{unreadCount > 0 && (
-          <span style={{ position: 'absolute', top: -4, right: -4, background: '#d00', color: '#fff', borderRadius: 12, padding: '0 6px', fontSize: 11 }}>{unreadCount}</span>
+      <button onClick={toggleOpen} className="icon-btn" aria-label='Уведомления' title='Уведомления' style={{ width:38 }}>
+        <span style={{ fontSize:14, fontFamily:'inherit', lineHeight:1 }}>✉</span>
+        {unreadCount > 0 && (
+          <span className='icon-btn-badge'>{unreadCount}</span>
         )}
       </button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: '110%', width: 380, maxHeight: 420, overflow: 'auto', background: '#fff', border: '1px solid #ccc', borderRadius: 6, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 50, fontSize: 13 }}>
+  <div style={{ position: 'absolute', right: 0, top: '110%', width: 380, maxHeight: 420, overflow: 'auto', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 50, fontSize: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #eee', gap: 8 }}>
             <strong style={{ fontSize: 14 }}>Уведомления</strong>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-              <button onClick={markAll} disabled={markingAll || unreadCount === 0} style={{ fontSize: 12 }}>{markingAll ? '...' : 'Прочитать все'}</button>
-              <button onClick={loadList} disabled={loading} style={{ fontSize: 12 }}>↻</button>
+              <button onClick={markAll} disabled={markingAll || unreadCount === 0} className='btn btn-outline' style={{ fontSize: 12, padding:'4px 10px' }}>{markingAll ? '...' : 'Прочитать все'}</button>
+              <button onClick={loadList} disabled={loading} className='btn btn-outline' style={{ fontSize: 12, padding:'4px 10px' }}>↻</button>
             </div>
           </div>
           {error && <div style={{ color: 'red', padding: '6px 10px' }}>{error}</div>}
@@ -181,7 +182,7 @@ export default function NotificationsBell({ onAnyAction }: Props) {
                 <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>{new Date(n.created_at).toLocaleString()}</div>
               </div>
               {!n.read && (
-                <button onClick={() => markOne(n.id)} style={{ fontSize: 11, height: 24 }}>✓</button>
+                <button onClick={() => markOne(n.id)} className='btn btn-outline' style={{ fontSize: 11, height: 26, padding:'2px 8px' }}>✓</button>
               )}
             </div>
           ))}

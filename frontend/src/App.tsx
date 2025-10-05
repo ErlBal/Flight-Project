@@ -22,23 +22,30 @@ export default function App() {
   const canSeeCompany = isManager || isAdmin
   const loc = useLocation()
 
+  const isLanding = loc.pathname === '/'
+  const isAuth = loc.pathname === '/login' || loc.pathname === '/register'
   return (
-    <div style={{ fontFamily: 'system-ui, sans-serif', lineHeight: 1.4 }}>
-      <nav style={{ display: 'flex', gap: 12, padding: 12, borderBottom: '1px solid #eee', alignItems:'center' }}>
-        <Link to="/">Home</Link>
-  {email && <Link to="/dashboard">My Flights</Link>}
-  {canSeeCompany && <Link to="/company">Company</Link>}
-        {isAdmin && <Link to="/admin">Admin</Link>}
-        <span style={{ marginLeft: 'auto', display:'flex', gap:12, alignItems:'center' }}>
-          {!email && <><Link to="/login">Login</Link><Link to="/register">Sign up</Link></>}
-          {email && <>
-            <span style={{ fontSize:12, opacity:.8 }}>{email}</span>
-            <NotificationsBell />
-            <button onClick={()=>{ localStorage.removeItem('auth_token'); location.href='/login' }} style={{ padding:'4px 10px' }}>Logout</button>
+    <div className={isLanding || isAuth ? undefined : 'app-shell'} style={{ lineHeight: 1.4 }}>
+      <nav className="nav-root">
+        <div className="nav-left">
+          <Link to="/" className={loc.pathname==='/'? 'nav-link active':'nav-link'}>Home</Link>
+          {email && <Link to="/dashboard" className={loc.pathname.startsWith('/dashboard')? 'nav-link active':'nav-link'}>My Flights</Link>}
+          {canSeeCompany && <Link to="/company" className={loc.pathname.startsWith('/company')? 'nav-link active':'nav-link'}>Company</Link>}
+          {isAdmin && <Link to="/admin" className={loc.pathname.startsWith('/admin')? 'nav-link active':'nav-link'}>Admin</Link>}
+        </div>
+        <div className="nav-right">
+          {!email && <>
+            <Link to="/login" className={loc.pathname.startsWith('/login')? 'nav-link active':'nav-link'}>Login</Link>
+            <Link to="/register" className={loc.pathname.startsWith('/register')? 'nav-link active':'nav-link'}>Sign up</Link>
           </>}
-        </span>
+          {email && <>
+            <span style={{ fontSize:13, color:'var(--color-text-faint)' }}>{email}</span>
+            <NotificationsBell />
+            <button className="btn btn-outline" style={{ padding:'6px 14px' }} onClick={()=>{ localStorage.removeItem('auth_token'); location.href='/login' }}>Logout</button>
+          </>}
+        </div>
       </nav>
-      <div style={{ padding: 16 }}>
+      <div style={{ padding: (isLanding || isAuth) ? '0' : '16px 0' }}>
         <Outlet key={loc.pathname} />
       </div>
     </div>
