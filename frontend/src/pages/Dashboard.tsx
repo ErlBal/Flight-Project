@@ -192,33 +192,42 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
       </div>
       <ul className={styles.flightsList}>
         {slice.map(({ t, depTs }) => {
-            const msLeft = depTs - Date.now()
-            const past = msLeft <= 0
-            const hoursLeft = msLeft / 3600000
-            const urgencyHigh = !past && hoursLeft <= 2
-            const urgencyMed = !past && !urgencyHigh && hoursLeft <= 24
-            const itemClass = [styles.flightItem, past ? styles.flightPast : '', urgencyHigh ? styles.urgencyHigh : '', urgencyMed ? styles.urgencyMedium : ''].filter(Boolean).join(' ')
-            const remainText = formatRemain(msLeft)
-            return (
-              <li key={t.confirmation_id} className={itemClass}>
-                <div className={styles.flightHeader}>
-                  <div style={{ fontSize:14 }}>
-                    <strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}
-                  </div>
-                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                    <span className={styles.statusBadge}>{t.status}</span>
-                    {!past && t.status === 'paid' && (
-                      <button className={styles.btnTiny} onClick={()=> setModalTicket(t)}>Reminders</button>
-                    )}
-                    {past && <button className={styles.btnTiny} onClick={()=>{ if(confirm('Удалить запись о рейсе из списка? (Не влияет на сервер)')) removePast(t.confirmation_id) }}>Remove</button>}
-                  </div>
+          const msLeft = depTs - Date.now()
+          const past = msLeft <= 0
+          const hoursLeft = msLeft / 3600000
+          const urgencyHigh = !past && hoursLeft <= 2
+          const urgencyMed = !past && !urgencyHigh && hoursLeft <= 24
+          const itemClass = [styles.flightItem, past ? styles.flightPast : '', urgencyHigh ? styles.urgencyHigh : '', urgencyMed ? styles.urgencyMedium : ''].filter(Boolean).join(' ')
+          const remainText = formatRemain(msLeft)
+          const canOpen = !past && t.status === 'paid'
+          return (
+            <li
+              key={t.confirmation_id}
+              className={itemClass}
+              style={canOpen ? { cursor: 'pointer' } : undefined}
+              onClick={() => { if (canOpen) setModalTicket(t) }}
+              title={canOpen ? 'Click to manage reminders' : undefined}
+            >
+              <div className={styles.flightHeader}>
+                <div style={{ fontSize:14 }}>
+                  <strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}
                 </div>
-                <div className={styles.flightMeta}>
-                  Dep: {t.flight ? new Date(depTs).toLocaleString() : '—'} | <span className={(urgencyHigh? styles.urgencyTextHigh : urgencyMed? styles.urgencyTextMedium : '')}>In: {remainText}</span> | Ticket: {t.confirmation_id}
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <span className={styles.statusBadge}>{t.status}</span>
+                  {past && (
+                    <button
+                      className={styles.btnTiny}
+                      onClick={(e) => { e.stopPropagation(); if (confirm('Удалить запись о рейсе из списка? (Не влияет на сервер)')) removePast(t.confirmation_id) }}
+                    >Remove</button>
+                  )}
                 </div>
-              </li>
-            )
-          })}
+              </div>
+              <div className={styles.flightMeta}>
+                Dep: {t.flight ? new Date(depTs).toLocaleString() : '—'} | <span className={(urgencyHigh? styles.urgencyTextHigh : urgencyMed? styles.urgencyTextMedium : '')}>In: {remainText}</span> | Ticket: {t.confirmation_id}
+              </div>
+            </li>
+          )
+        })}
         {slice.length === 0 && !loading && <li style={{ fontSize:13, opacity:.7 }}>No tickets.</li>}
       </ul>
     </div>
