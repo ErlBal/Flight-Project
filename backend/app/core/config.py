@@ -56,6 +56,21 @@ class Settings(BaseSettings):
         # Fallback dev defaults if none provided
         if not items:
             return ["http://localhost:5173", "http://127.0.0.1:5173"]
-        return items
+        # Dev convenience: ensure both localhost and 127.0.0.1 variants for same ports
+        augmented = set(items)
+        for origin in list(items):
+            if origin.startswith("http://localhost:"):
+                try:
+                    port = origin.rsplit(":", 1)[1]
+                    augmented.add(f"http://127.0.0.1:{port}")
+                except Exception:
+                    pass
+            if origin.startswith("http://127.0.0.1:"):
+                try:
+                    port = origin.rsplit(":", 1)[1]
+                    augmented.add(f"http://localhost:{port}")
+                except Exception:
+                    pass
+        return list(augmented)
 
 settings = Settings()  # type: ignore

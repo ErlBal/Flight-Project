@@ -3,6 +3,14 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 import os
 import logging
+import sys
+from pathlib import Path
+
+# Ensure the project root (which contains the 'app' package) is on sys.path even
+# if Alembic is executed with CWD set to the 'alembic' directory inside the container.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent  # /app
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -18,6 +26,7 @@ logger = logging.getLogger("alembic.env")
 from app.models.base import Base  # noqa: E402
 from app.models import user, flight, ticket, company, company_manager  # noqa: F401,E402
 from app.models import banner, offer  # noqa: F401,E402
+from app.models import ticket_reminder  # noqa: F401,E402
 
 target_metadata = Base.metadata
 
