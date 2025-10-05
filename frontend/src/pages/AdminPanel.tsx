@@ -527,7 +527,7 @@ function BannersSection() {
                   <td style={td}>{b.position ?? ''}</td>
                   <td style={{ ...td, display:'flex', gap:6, flexWrap:'wrap' }}>
                     <button type='button' onClick={()=>startEdit(b)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
-                    <button type='button' onClick={()=>toggleActive(b)} style={{ padding:'4px 8px', fontSize:12 }}>{b.is_active? 'Deactivate':'Activate'}</button>
+                    <button type='button' onClick={()=>toggleActive(b)} style={{ padding:'4px 8px', fontSize:12 }}>{b.is_active? 'Deactivate' :'Activate'}</button>
                     <button type='button' disabled={deleting[b.id]} onClick={()=>remove(b)} style={{ padding:'4px 8px', fontSize:12 }}>{deleting[b.id]? '...':'Delete'}</button>
                   </td>
                 </tr>
@@ -540,18 +540,27 @@ function BannersSection() {
   )
 }
 
-type Offer = { id:number; title:string; subtitle?:string|null; price_from?:number|null; flight_ref?:string|null; is_active:boolean; position?:number|null }
+type Offer = { id:number; title:string; subtitle?:string|null; price_from?:number|null; flight_ref?:string|null; is_active:boolean; position?:number|null; tag?:string|null; mode?:'interactive'|'info'; description?:string|null; click_count?:number }
+
+// Regex для client-side проверки flight_ref
+const FLIGHT_REF_RE = /^([A-Z]{3})(?:-([A-Z]{3})(?:@(\d{4}-\d{2}-\d{2}))?)?$/
+const TAG_OPTIONS = ['', 'sale','new','last_minute','info']
 
 function OffersSection() {
   const [offers, setOffers] = useState<Offer[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string|null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
-  const [creating, setCreating] = useState(false)
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false)
   const [editingId, setEditingId] = useState<number|null>(null)
-  const [form, setForm] = useState({ title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'' })
+  const emptyForm = { title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'', tag:'', mode:'interactive', description:'' }
+  const [form, setForm] = useState<any>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<Record<number, boolean>>({})
+  const [normalizing, setNormalizing] = useState(false)
+  const [positionUpdating, setPositionUpdating] = useState<Record<number, boolean>>({})
 
   useEffect(()=>{ load() }, [refreshTick])
 
@@ -561,81 +570,137 @@ function OffersSection() {
       const r = await api.get('/content/admin/offers')
       setOffers(r.data || [])
     } catch(e:any){
-  setError(extractErrorMessage(e?.response?.data) || 'Failed to load offers')
+      setError(extractErrorMessage(e?.response?.data) || 'Failed to load offers')
     } finally { setLoading(false) }
   }
-  const startCreate = () => { setEditingId(null); setForm({ title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'' }); setCreating(true) }
-  const startEdit = (o:Offer) => { setEditingId(o.id); setForm({ title:o.title||'', subtitle:o.subtitle||'', price_from: o.price_from?.toString()||'', flight_ref:o.flight_ref||'', is_active:o.is_active, position:o.position?.toString()||'' }); setCreating(true) }
-  const reset = () => { setCreating(false); setEditingId(null); setForm({ title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'' }) }
+
+  const openCreate = () => { setEditingId(null); setForm(emptyForm); setModalOpen(true) }
+  const openEdit = (o:Offer) => {
+    setEditingId(o.id)
+    setForm({
+      title: o.title||'',
+      subtitle: o.subtitle||'',
+      price_from: o.price_from?.toString()||'',
+      flight_ref: o.flight_ref||'',
+      is_active: o.is_active,
+      position: o.position?.toString()||'',
+      tag: o.tag||'',
+      mode: o.mode || 'interactive',
+      description: o.description||''
+    })
+    setModalOpen(true)
+  }
+  const closeModal = () => { if (saving) return; setModalOpen(false); setEditingId(null); setForm(emptyForm) }
+
+  const validate = (): string | null => {
+    if (!form.title.trim()) return 'Title required'
+    if (form.flight_ref && !FLIGHT_REF_RE.test(form.flight_ref.trim().toUpperCase())) return 'Invalid flight_ref format'
+    if (form.mode === 'info' && form.description.length > 1000) return 'Description too long'
+    if (form.tag && !TAG_OPTIONS.includes(form.tag)) return 'Invalid tag'
+    return null
+  }
+
   const submit = async (e:React.FormEvent) => {
-    e.preventDefault(); if(!form.title.trim()) return; setSaving(true)
+    e.preventDefault()
+    const err = validate(); if (err) { alert(err); return }
+    setSaving(true)
     try {
       const payload:any = { title: form.title.trim(), is_active: form.is_active }
       if(form.subtitle.trim()) payload.subtitle = form.subtitle.trim()
       if(form.price_from.trim()) payload.price_from = Number(form.price_from)
-      if(form.flight_ref.trim()) payload.flight_ref = form.flight_ref.trim()
+      if(form.flight_ref.trim()) payload.flight_ref = form.flight_ref.trim().toUpperCase()
       if(form.position.trim()) payload.position = Number(form.position)
+      if(form.tag) payload.tag = form.tag
+      if(form.mode) payload.mode = form.mode
+      if(form.mode === 'info' && form.description.trim()) payload.description = form.description.trim()
       if(editingId) await api.put(`/content/admin/offers/${editingId}`, payload)
       else await api.post('/content/admin/offers', payload)
-      reset(); setRefreshTick(x=>x+1)
+      closeModal(); setRefreshTick(x=>x+1)
     } catch(e:any){
-  alert(extractErrorMessage(e?.response?.data) || 'Save failed')
+      alert(extractErrorMessage(e?.response?.data) || 'Save failed')
     } finally { setSaving(false) }
   }
-  const toggleActive = async (o:Offer) => { try { await api.put(`/content/admin/offers/${o.id}`, { is_active: !o.is_active }); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Toggle failed') } }
+
+  const toggleActive = async (o:Offer) => {
+    try { await api.put(`/content/admin/offers/${o.id}`, { is_active: !o.is_active }); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Toggle failed') }
+  }
+
   const remove = async (o:Offer) => { if(!confirm('Delete offer?')) return; setDeleting(d=>({ ...d, [o.id]: true })); try { await api.delete(`/content/admin/offers/${o.id}`); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Delete failed') } finally { setDeleting(d=>({ ...d, [o.id]: false })) } }
+
+  const updatePosition = async (o:Offer, delta:number) => {
+    const newPos = Math.max(0, (o.position||0) + delta)
+    setPositionUpdating(p=>({ ...p, [o.id]: true }))
+    try { await api.put(`/content/admin/offers/${o.id}`, { position: newPos }); setRefreshTick(x=>x+1) } catch(e:any){ alert('Position update failed') } finally { setPositionUpdating(p=>({ ...p, [o.id]: false })) }
+  }
+
+  const normalizePositions = async () => {
+    setNormalizing(true)
+    try {
+      const sorted = [...offers].sort((a,b)=> (a.position??0)-(b.position??0))
+      let changed = false
+      for (let i=0;i<sorted.length;i++) {
+        const o = sorted[i]
+        if ((o.position??0) !== i) {
+          changed = true
+          await api.put(`/content/admin/offers/${o.id}`, { position: i })
+        }
+      }
+      if (changed) setRefreshTick(x=>x+1)
+    } catch { alert('Normalize failed') } finally { setNormalizing(false) }
+  }
+
+  const sortedOffers = [...offers].sort((a,b)=> (a.position??0) - (b.position??0))
+
   return (
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
       <h3 style={{ marginTop:0 }}>Offers</h3>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
-        {!creating && <button onClick={startCreate}>New offer</button>}
-        {creating && <button onClick={reset} type='button'>Cancel</button>}
+        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Refresh</button>
+        <button onClick={openCreate}>New offer</button>
+        <button onClick={normalizePositions} disabled={normalizing || loading}>{normalizing? '...' : 'Normalize order'}</button>
       </div>
-      {creating && (
-        <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20, maxWidth:520 }}>
-          <input placeholder='Title *' value={form.title} onChange={e=>setForm(f=>({ ...f, title:e.target.value }))} required />
-          <input placeholder='Subtitle' value={form.subtitle} onChange={e=>setForm(f=>({ ...f, subtitle:e.target.value }))} />
-          <input placeholder='Price from' value={form.price_from} onChange={e=>{ const v=e.target.value; if(/^[0-9]*\.?[0-9]*$/.test(v)) setForm(f=>({ ...f, price_from:v })) }} />
-          <input placeholder='Flight ref (optional)' value={form.flight_ref} onChange={e=>setForm(f=>({ ...f, flight_ref:e.target.value }))} />
-          <input placeholder='Position' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, position:v })) }} />
-          <label style={{ display:'flex', gap:6, fontSize:14 }}>
-            <input type='checkbox' checked={form.is_active} onChange={e=>setForm(f=>({ ...f, is_active:e.target.checked }))} /> Active
-          </label>
-          <div style={{ display:'flex', gap:8 }}>
-            <button type='submit' disabled={saving}>{saving? '...' : (editingId? 'Update' : 'Create')}</button>
-          </div>
-        </form>
-      )}
-  {loading && <p>Loading...</p>}
+      {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
-  {!loading && !error && offers.length===0 && <p>No offers.</p>}
-      {!loading && !error && offers.length>0 && (
+      {!loading && !error && sortedOffers.length===0 && <p>No offers.</p>}
+      {!loading && !error && sortedOffers.length>0 && (
         <div style={{ overflowX:'auto' }}>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:14 }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
             <thead>
-              <tr style={{ textAlign:'left', background:'#fafafa' }}>
+              <tr style={{ background:'#fafafa', textAlign:'left' }}>
                 <th style={th}>ID</th>
-                <th style={th}>Title</th>
+                <th style={th}>Title / Meta</th>
+                <th style={th}>Tag</th>
+                <th style={th}>Mode</th>
+                <th style={th}>Clicks</th>
                 <th style={th}>Active</th>
                 <th style={th}>Pos</th>
                 <th style={th}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {offers.sort((a,b)=> (a.position??0) - (b.position??0)).map(o => (
+              {sortedOffers.map(o => (
                 <tr key={o.id} style={{ borderTop:'1px solid #eee' }}>
                   <td style={td}>{o.id}</td>
                   <td style={{ ...td, maxWidth:260 }}>
                     <div style={{ fontWeight:600 }}>{o.title}</div>
                     {o.subtitle && <div style={{ fontSize:11, opacity:.7 }}>{o.subtitle}</div>}
-                    {o.flight_ref && <div style={{ fontSize:11, opacity:.7 }}>{o.flight_ref}</div>}
-                    {o.price_from!=null && <div style={{ fontSize:11, opacity:.7 }}>from ${o.price_from}</div>}
+                    {o.flight_ref && <div style={{ fontSize:11, opacity:.6 }}>ref: {o.flight_ref}</div>}
+                    {o.price_from!=null && <div style={{ fontSize:11, opacity:.6 }}>from ${o.price_from}</div>}
+                    {o.mode==='info' && o.description && <div style={{ fontSize:10, opacity:.55, marginTop:2, maxHeight:36, overflow:'hidden', textOverflow:'ellipsis' }}>{o.description}</div>}
                   </td>
+                  <td style={td}>{o.tag || '—'}</td>
+                  <td style={td}>{o.mode || 'interactive'}</td>
+                  <td style={td}>{o.click_count ?? 0}</td>
                   <td style={td}>{o.is_active? 'Yes':'No'}</td>
-                  <td style={td}>{o.position ?? ''}</td>
+                  <td style={{ ...td, whiteSpace:'nowrap', fontSize:12 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                      <button title='Move up' disabled={positionUpdating[o.id]} onClick={()=>updatePosition(o,-1)} style={{ padding:'2px 6px' }}>▲</button>
+                      <button title='Move down' disabled={positionUpdating[o.id]} onClick={()=>updatePosition(o,1)} style={{ padding:'2px 6px' }}>▼</button>
+                      <span style={{ opacity:.7 }}>#{o.position ?? 0}</span>
+                    </div>
+                  </td>
                   <td style={{ ...td, display:'flex', gap:6, flexWrap:'wrap' }}>
-                    <button type='button' onClick={()=>startEdit(o)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
+                    <button type='button' onClick={()=>openEdit(o)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
                     <button type='button' onClick={()=>toggleActive(o)} style={{ padding:'4px 8px', fontSize:12 }}>{o.is_active? 'Deactivate':'Activate'}</button>
                     <button type='button' disabled={deleting[o.id]} onClick={()=>remove(o)} style={{ padding:'4px 8px', fontSize:12 }}>{deleting[o.id]? '...':'Delete'}</button>
                   </td>
@@ -645,6 +710,50 @@ function OffersSection() {
           </table>
         </div>
       )}
+
+      {modalOpen && (
+        <div style={modalOverlay}>
+          <div style={modalBox}>
+            <h4 style={{ margin:'0 0 12px' }}>{editingId? 'Edit offer':'New offer'}</h4>
+            <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              <input placeholder='Title *' value={form.title} onChange={e=>setForm((f:any)=>({ ...f, title:e.target.value }))} required />
+              <input placeholder='Subtitle' value={form.subtitle} onChange={e=>setForm((f:any)=>({ ...f, subtitle:e.target.value }))} />
+              <input placeholder='Price from' value={form.price_from} onChange={e=>{ const v=e.target.value; if(/^[0-9]*\.?[0-9]*$/.test(v)) setForm((f:any)=>({ ...f, price_from:v })) }} />
+              <input placeholder='Flight ref (AAA / AAA-BBB / AAA-BBB@YYYY-MM-DD)' value={form.flight_ref} onChange={e=>setForm((f:any)=>({ ...f, flight_ref:e.target.value.toUpperCase() }))} />
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                <label style={{ fontSize:12 }}>Tag:
+                  <select value={form.tag} onChange={e=>setForm((f:any)=>({ ...f, tag:e.target.value }))} style={{ marginLeft:6 }}>
+                    {TAG_OPTIONS.map(t => <option key={t} value={t}>{t||'(none)'}</option>)}
+                  </select>
+                </label>
+                <label style={{ fontSize:12 }}>Mode:
+                  <select value={form.mode} onChange={e=>setForm((f:any)=>({ ...f, mode:e.target.value }))} style={{ marginLeft:6 }}>
+                    <option value='interactive'>interactive</option>
+                    <option value='info'>info</option>
+                  </select>
+                </label>
+                <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:12 }}>
+                  <input type='checkbox' checked={form.is_active} onChange={e=>setForm((f:any)=>({ ...f, is_active:e.target.checked }))} /> Active
+                </label>
+              </div>
+              {form.mode === 'info' && (
+                <textarea placeholder='Description (tooltip)' value={form.description} onChange={e=>setForm((f:any)=>({ ...f, description:e.target.value }))} style={{ minHeight:80 }} />
+              )}
+              <input placeholder='Position' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm((f:any)=>({ ...f, position:v })) }} />
+              {editingId && (
+                <div style={{ fontSize:12, opacity:.7 }}>Clicks: {offers.find(o=>o.id===editingId)?.click_count ?? 0}</div>
+              )}
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                <button type='submit' disabled={saving}>{saving? '...' : (editingId? 'Update':'Create')}</button>
+                <button type='button' onClick={closeModal} disabled={saving}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
+const modalOverlay: React.CSSProperties = { position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'flex-start', justifyContent:'center', paddingTop:80, zIndex:2000 }
+const modalBox: React.CSSProperties = { background:'#fff', borderRadius:8, padding:'18px 20px 22px', width:'100%', maxWidth:520, boxShadow:'0 8px 28px -6px rgba(0,0,0,0.4)', animation:'fadeIn .25s ease' }
