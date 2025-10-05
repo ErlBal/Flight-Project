@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 export interface SearchCriteria {
   origin?: string
@@ -7,7 +7,6 @@ export interface SearchCriteria {
   passengers?: number
   min_price?: number
   max_price?: number
-  max_stops?: number
 }
 
 interface Props { onSearch?: (criteria: SearchCriteria) => void }
@@ -19,7 +18,26 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
   const [passengers, setPassengers] = useState<number>(1)
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
-  const [maxStops, setMaxStops] = useState('')
+
+  // Слушатель для автозаполнения (OffersGrid activation)
+  useEffect(() => {
+    const handler = (e: any) => {
+      const d = e.detail || {}
+      if (d.origin !== undefined) setOrigin(d.origin || '')
+      if (d.destination !== undefined) setDestination(d.destination || '')
+      if (d.date !== undefined) setDate(d.date || '')
+      // Можно сразу запускать поиск
+      if (d.autoSubmit) {
+        onSearch?.({
+          origin: (d.origin||'').trim().toUpperCase() || undefined,
+          destination: (d.destination||'').trim().toUpperCase() || undefined,
+          date: d.date || undefined,
+        })
+      }
+    }
+    window.addEventListener('offer_prefill', handler as any)
+    return () => window.removeEventListener('offer_prefill', handler as any)
+  }, [onSearch])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -30,7 +48,6 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
       passengers: passengers || undefined,
       min_price: minPrice ? Number(minPrice) : undefined,
       max_price: maxPrice ? Number(maxPrice) : undefined,
-      max_stops: maxStops ? Number(maxStops) : undefined,
     })
   }
 
@@ -59,10 +76,6 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
       <div style={fieldCol}>
         <label style={labelStyle}>Max Price</label>
         <input value={maxPrice} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxPrice(v)}} style={inputStyle} />
-      </div>
-      <div style={fieldCol}>
-        <label style={labelStyle}>Max Stops</label>
-        <input value={maxStops} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxStops(v)}} style={inputStyle} />
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end' }}>
         <button type="submit" style={submitBtn}>Search</button>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import BannerSlider from '../components/BannerSlider'
+// import BannerSlider from '../components/BannerSlider'
 import QuickSearchForm, { SearchCriteria } from '../components/QuickSearchForm'
-import HighlightedOffers from '../components/HighlightedOffers'
+import OffersGrid from '../components/OffersGrid'
 import api, { extractErrorMessage } from '../lib/api'
 
 type Flight = {
@@ -26,6 +26,7 @@ export default function Landing() {
   const [quantities, setQuantities] = useState<Record<number, number>>({})
   const [toast, setToast] = useState<string|null>(null)
   const [authed, setAuthed] = useState(false)
+  const [prefill, setPrefill] = useState<{origin?: string; destination?: string; date?: string}>({})
 
   useEffect(() => {
     // simple auth presence check
@@ -73,6 +74,36 @@ export default function Landing() {
     return () => window.removeEventListener('flight_seats_update', handler as any)
   }, [])
 
+  const [sideBanners, setSideBanners] = useState<any[]>([])
+  const [rotIndexLeft, setRotIndexLeft] = useState(0)
+  const [rotIndexRight, setRotIndexRight] = useState(0)
+
+  useEffect(() => {
+    // загружаем баннеры (используем тот же публичный эндпоинт)
+    api.get('/content/banners').then(r => {
+      const arr = Array.isArray(r.data) ? r.data : []
+      setSideBanners(arr)
+    }).catch(()=>{})
+  }, [])
+
+  useEffect(() => {
+    if (!sideBanners.length) return
+    const iv = setInterval(() => {
+      setRotIndexLeft(i => (i + 1) % sideBanners.length)
+      setRotIndexRight(i => (i + 2) % sideBanners.length) // сдвиг другой колонки
+    }, 15000)
+    return () => clearInterval(iv)
+  }, [sideBanners])
+
+  const leftShown = sideBanners.slice(rotIndexLeft, rotIndexLeft + 3)
+  if (leftShown.length < 3 && sideBanners.length >= 3) {
+    leftShown.push(...sideBanners.slice(0, 3 - leftShown.length))
+  }
+  const rightShown = sideBanners.slice(rotIndexRight, rotIndexRight + 3)
+  if (rightShown.length < 3 && sideBanners.length >= 3) {
+    rightShown.push(...sideBanners.slice(0, 3 - rightShown.length))
+  }
+
   return (
     <div style={pageWrap}>
       <header style={heroHeader}>
@@ -80,65 +111,88 @@ export default function Landing() {
           <h1 style={titleStyle}>FlightProject</h1>
           <p style={subtitleStyle}>Search, compare and book flights quickly.</p>
         </div>
-        <div style={{ flex: 1, minWidth: 320 }}>
-          <BannerSlider />
-        </div>
+        {/* Старый BannerSlider удалён */}
       </header>
 
-      <section style={{ marginTop: 32 }}>
-        <h2 style={sectionTitle}>Quick search</h2>
-        <QuickSearchForm onSearch={runSearch} />
-        <div style={resultsWrapper}>
-          <div style={resultsHeaderRow}>
-            <span style={{ fontSize:13, fontWeight:600 }}>Results</span>
-            {loading && <span style={{ fontSize:11 }}>Loading…</span>}
-            {!loading && flights.length>0 && <span style={{ fontSize:11, opacity:.7 }}>{flights.length} found</span>}
-          </div>
-          {error && <div style={errorBox}>{error}</div>}
-          {!error && !loading && flights.length===0 && <div style={emptyBox}>No flights</div>}
-          <ul style={resultsList}>
-            {flights.slice(0,50).map(f => (
-              <li key={f.id} style={resultItem}>
-                <div style={resultTopRow}>
-                  <strong style={{ fontSize:13 }}>{f.airline} {f.flight_number}</strong>
-                  <span style={stopsBadge}>{f.stops} stops</span>
-                </div>
-                <div style={routeLine}>{f.origin} → {f.destination}</div>
-                <div style={timeLine}>Dep {new Date(f.departure).toLocaleString()} | Arr {new Date(f.arrival).toLocaleString()}</div>
-                <div style={actionRow}>
-                  <span style={priceTag}>${f.price}</span>
-                  <span style={seatsTag}>Seats: {f.seats_available}</span>
-                  <input
-                    type='number'
-                    min={1}
-                    max={Math.min(10, f.seats_available)}
-                    value={quantities[f.id] || 1}
-                    onChange={e=>setQuantities(q=>({ ...q, [f.id]: Math.max(1, Math.min(10, Number(e.target.value)||1)) }))}
-                    style={qtyInput}
-                    disabled={f.seats_available<=0}
-                  />
-                  <button
-                    onClick={()=>buy(f.id)}
-                    disabled={!authed || f.seats_available<=0 || buying[f.id]}
-                    style={{ ...buyBtn, background: !authed ? '#64748b' : buyBtn.background, cursor: !authed ? 'not-allowed' : 'pointer', opacity: (!authed || buying[f.id]) ? 0.8 : 1 }}
-                    title={!authed ? 'Login to purchase tickets' : undefined}
-                  >{!authed ? 'Login to buy' : (buying[f.id]?'...':'Buy')}</button>
-                </div>
-              </li>
-            ))}
-          </ul>
+      <div style={sideLayout}>
+        <div style={sideCol}>
+          {leftShown.map((b:any) => (
+            <a key={b.id} href={b.link_url || '#'} style={sideBannerBox} title={b.title}>
+              {b.image_url ? <img src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
+            </a>
+          ))}
         </div>
-      </section>
 
-  <section style={{ marginTop: 40 }}>
-        <div style={sectionHeaderRow}>
-          <h2 style={sectionTitle}>Highlighted offers</h2>
-          <a href='/?date=' style={smallLink}>Reset search</a>
+        <div>
+          <section>
+            <h2 style={sectionTitle}>Quick search</h2>
+            <QuickSearchForm onSearch={runSearch} />
+            <div style={resultsWrapper}>
+              <div style={resultsHeaderRow}>
+                <span style={{ fontSize:13, fontWeight:600 }}>Results</span>
+                {loading && <span style={{ fontSize:11 }}>Loading…</span>}
+                {!loading && flights.length>0 && <span style={{ fontSize:11, opacity:.7 }}>{flights.length} found</span>}
+              </div>
+              {error && <div style={errorBox}>{error}</div>}
+              {!error && !loading && flights.length===0 && <div style={emptyBox}>No flights</div>}
+              <ul style={resultsList}>
+                {flights.slice(0,50).map(f => (
+                  <li key={f.id} style={resultItem}>
+                    <div style={resultTopRow}>
+                      <strong style={{ fontSize:13 }}>{f.airline} {f.flight_number}</strong>
+                      <span style={stopsBadge}>{f.stops} stops</span>
+                    </div>
+                    <div style={routeLine}>{f.origin} → {f.destination}</div>
+                    <div style={timeLine}>Dep {new Date(f.departure).toLocaleString()} | Arr {new Date(f.arrival).toLocaleString()}</div>
+                    <div style={actionRow}>
+                      <span style={priceTag}>${f.price}</span>
+                      <span style={seatsTag}>Seats: {f.seats_available}</span>
+                      <input
+                        type='number'
+                        min={1}
+                        max={Math.min(10, f.seats_available)}
+                        value={quantities[f.id] || 1}
+                        onChange={e=>setQuantities(q=>({ ...q, [f.id]: Math.max(1, Math.min(10, Number(e.target.value)||1)) }))}
+                        style={qtyInput}
+                        disabled={f.seats_available<=0}
+                      />
+                      <button
+                        onClick={()=>buy(f.id)}
+                        disabled={!authed || f.seats_available<=0 || buying[f.id]}
+                        style={{ ...buyBtn, background: !authed ? '#64748b' : buyBtn.background, cursor: !authed ? 'not-allowed' : 'pointer', opacity: (!authed || buying[f.id]) ? 0.8 : 1 }}
+                        title={!authed ? 'Login to purchase tickets' : undefined}
+                      >{!authed ? 'Login to buy' : (buying[f.id]?'...':'Buy')}</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+
+          <section style={{ marginTop: 40 }}>
+            <div style={sectionHeaderRow}>
+              <h2 style={sectionTitle}>Предложения</h2>
+              <a href='/?date=' style={smallLink}>Сбросить поиск</a>
+            </div>
+            <OffersGrid
+              limit={6}
+              onActivateOffer={(c)=>{
+                const evt = new CustomEvent('offer_prefill', { detail: { ...c, autoSubmit: true } })
+                window.dispatchEvent(evt)
+              }}
+            />
+          </section>
         </div>
-        <HighlightedOffers limit={6} />
-      </section>
 
-      {/* Inline results now replace overlay */}
+        <div style={sideCol}>
+          {rightShown.map((b:any) => (
+            <a key={b.id} href={b.link_url || '#'} style={sideBannerBox} title={b.title}>
+              {b.image_url ? <img src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
+            </a>
+          ))}
+        </div>
+      </div>
+
       {toast && (
         <div style={{ position:'fixed', bottom:20, right:20, background:'#333', color:'#fff', padding:'8px 14px', borderRadius:4, fontSize:13 }}>
           {toast}
@@ -234,3 +288,7 @@ const priceTag: React.CSSProperties = { fontWeight:600, fontSize:13 }
 const seatsTag: React.CSSProperties = { fontSize:11 }
 const qtyInput: React.CSSProperties = { width:54, fontSize:12, padding:'3px 4px', border:'1px solid #cbd5e1', borderRadius:4 }
 const buyBtn: React.CSSProperties = { fontSize:12, background:'#1d3557', color:'#fff', border:'none', borderRadius:4, padding:'5px 10px', cursor:'pointer' }
+
+const sideLayout: React.CSSProperties = { display:'grid', gridTemplateColumns:'160px 1fr 160px', gap:24, alignItems:'start', marginTop:32 }
+const sideCol: React.CSSProperties = { display:'flex', flexDirection:'column', gap:16, position:'sticky', top:16 }
+const sideBannerBox: React.CSSProperties = { background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8, height:140, overflow:'hidden', position:'relative', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:8, fontSize:13, textAlign:'center', fontWeight:500 }
