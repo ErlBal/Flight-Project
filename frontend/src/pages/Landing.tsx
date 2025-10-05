@@ -25,6 +25,10 @@ export default function Landing() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string|null>(null)
   const [flights, setFlights] = useState<Flight[]>([])
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  const [buying, setBuying] = useState<Record<number, boolean>>({})
+  const [quantities, setQuantities] = useState<Record<number, number>>({})
+  const [toast, setToast] = useState<string|null>(null)
 
   const origin = params.get('origin') || ''
   const destination = params.get('destination') || ''
@@ -49,7 +53,20 @@ export default function Landing() {
     } finally { setLoading(false) }
   }, [origin, destination, date, passengers, ref])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(); if (origin || destination || date || passengers || ref) setOverlayOpen(true) }, [load])
+
+  const buy = async (flightId: number) => {
+    if (buying[flightId]) return
+    setBuying(b => ({ ...b, [flightId]: true }))
+    try {
+      const quantity = quantities[flightId] || 1
+      const res = await api.post('/tickets', { flight_id: flightId, quantity })
+      if (res.data.confirmation_ids) setToast(`Purchased ${res.data.quantity} ticket(s)`) 
+      else setToast('Ticket purchased')
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Purchase failed')
+    } finally { setBuying(b => ({ ...b, [flightId]: false })) }
+  }
 
   return (
     <div style={pageWrap}>
@@ -76,29 +93,60 @@ export default function Landing() {
         <HighlightedOffers limit={6} />
       </section>
 
-      <section style={{ marginTop: 40 }}>
-        <h2 style={sectionTitle}>Search results</h2>
-        {!(origin || destination || date || passengers || ref) && <p style={{ fontSize:14, opacity:.7 }}>Use the quick search above to find flights.</p>}
-        {loading && <p>Loading...</p>}
-        {error && <p style={{ color:'red' }}>{error}</p>}
-        {!loading && !error && (origin || destination || date || passengers || ref) && flights.length===0 && <p>No flights found.</p>}
-        <ul style={{ listStyle:'none', padding:0 }}>
-          {flights.map(f => (
-            <li key={f.id} style={{ border:'1px solid #e2e8f0', borderRadius:8, padding:12, marginBottom:10 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                <strong>{f.airline} {f.flight_number}</strong>
-                <span style={{ fontSize:12, background:'#eef', padding:'2px 6px', borderRadius:4 }}>Stops: {f.stops}</span>
-              </div>
-              <div style={{ fontSize:14, marginTop:4 }}>{f.origin} → {f.destination}</div>
-              <div style={{ fontSize:12, opacity:.75 }}>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
-              <div style={{ marginTop:6, display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
-                <span style={{ fontWeight:600 }}>${f.price}</span>
-                <span style={{ fontSize:12 }}>Seats: {f.seats_available}</span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
+      {/* Overlay panel */}
+      <div style={{ position:'fixed', top:0, right:0, bottom:0, width: overlayOpen? 420:0, transition:'width .28s ease', background:'#fff', boxShadow: overlayOpen?'-4px 0 12px rgba(0,0,0,.15)':'none', overflow:'hidden', zIndex:50, borderLeft:'1px solid #e2e8f0' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', borderBottom:'1px solid #e2e8f0', background:'#f8fafc' }}>
+          <strong style={{ fontSize:14 }}>Search Results</strong>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={()=>setOverlayOpen(false)} style={iconBtn}>×</button>
+          </div>
+        </div>
+        <div style={{ padding:'12px 16px', height:'100%', overflowY:'auto' }}>
+          {!(origin || destination || date || passengers || ref) && <p style={{ fontSize:13, opacity:.7 }}>Use the form on the left to search.</p>}
+          {loading && <p style={{ fontSize:13 }}>Loading...</p>}
+          {error && <p style={{ color:'red', fontSize:13 }}>{error}</p>}
+          {!loading && !error && (origin || destination || date || passengers || ref) && flights.length===0 && <p style={{ fontSize:13 }}>No flights found.</p>}
+          <ul style={{ listStyle:'none', padding:0, margin:0 }}>
+            {flights.map(f => (
+              <li key={f.id} style={{ border:'1px solid #e2e8f0', padding:10, borderRadius:6, marginBottom:10 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', gap:8 }}>
+                  <span style={{ fontWeight:600, fontSize:13 }}>{f.airline} {f.flight_number}</span>
+                  <span style={{ fontSize:11, background:'#eef', padding:'2px 6px', borderRadius:4 }}>Stops {f.stops}</span>
+                </div>
+                <div style={{ fontSize:12, marginTop:4 }}>{f.origin} → {f.destination}</div>
+                <div style={{ fontSize:11, opacity:.7 }}>Dep: {new Date(f.departure).toLocaleString()}<br/>Arr: {new Date(f.arrival).toLocaleString()}</div>
+                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:6, flexWrap:'wrap' }}>
+                  <span style={{ fontWeight:600, fontSize:13 }}>${f.price}</span>
+                  <span style={{ fontSize:11 }}>Seats: {f.seats_available}</span>
+                  <input
+                    type='number'
+                    min={1}
+                    max={Math.min(10, f.seats_available)}
+                    value={quantities[f.id] || 1}
+                    onChange={e=>setQuantities(q=>({ ...q, [f.id]: Math.max(1, Math.min(10, Number(e.target.value)||1)) }))}
+                    style={{ width:60, fontSize:12 }}
+                    disabled={f.seats_available<=0}
+                  />
+                  <button
+                    onClick={()=>buy(f.id)}
+                    disabled={f.seats_available<=0 || buying[f.id]}
+                    style={{ fontSize:12, padding:'4px 10px', background:'#1d3557', color:'#fff', border:'none', borderRadius:4, cursor:'pointer' }}
+                  >{buying[f.id]?'...':'Buy'}</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      <button onClick={()=>setOverlayOpen(o=>!o)} style={{ position:'fixed', top:80, right: overlayOpen? 430: 10, zIndex:60, transition:'right .28s', background:'#1d3557', color:'#fff', border:'none', borderRadius: '20px', padding:'8px 14px', cursor:'pointer', fontSize:12 }}>
+        {overlayOpen ? 'Hide results' : 'Show results'}
+      </button>
+      {toast && (
+        <div style={{ position:'fixed', bottom:20, right:20, background:'#333', color:'#fff', padding:'8px 14px', borderRadius:4, fontSize:13 }}>
+          {toast}
+          <button style={{ marginLeft:10 }} onClick={()=>setToast(null)}>x</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -160,4 +208,15 @@ const smallLink: React.CSSProperties = {
   fontSize: 13,
   textDecoration: 'none',
   color: '#1d3557'
+}
+
+const iconBtn: React.CSSProperties = {
+  background:'transparent',
+  border:'1px solid #94a3b8',
+  borderRadius:4,
+  cursor:'pointer',
+  padding:'2px 8px',
+  fontSize:14,
+  lineHeight:1,
+  color:'#334155'
 }

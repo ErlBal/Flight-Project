@@ -1,30 +1,48 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 
-interface Props {
-  onSubmit?: () => void
-}
+interface Props { onSubmit?: () => void }
 
 export const QuickSearchForm: React.FC<Props> = ({ onSubmit }) => {
   const nav = useNavigate()
-  const [origin, setOrigin] = useState('')
-  const [destination, setDestination] = useState('')
-  const [date, setDate] = useState('')
-  const [passengers, setPassengers] = useState(1)
+  const loc = useLocation()
+  const sp = new URLSearchParams(loc.search)
+  const [origin, setOrigin] = useState(sp.get('origin') || '')
+  const [destination, setDestination] = useState(sp.get('destination') || '')
+  const [date, setDate] = useState(sp.get('date') || sp.get('departure_date') || '')
+  const [passengers, setPassengers] = useState<number>(Number(sp.get('passengers')||'')||1)
+  const [minPrice, setMinPrice] = useState(sp.get('min_price') || '')
+  const [maxPrice, setMaxPrice] = useState(sp.get('max_price') || '')
+  const [maxStops, setMaxStops] = useState(sp.get('max_stops') || '')
+
+  // keep URL params reflected in fields on location change (e.g. back/forward nav)
+  useEffect(()=>{
+    const p = new URLSearchParams(loc.search)
+    setOrigin(p.get('origin') || '')
+    setDestination(p.get('destination') || '')
+    setDate(p.get('date') || p.get('departure_date') || '')
+    setPassengers(Number(p.get('passengers')||'')||1)
+    setMinPrice(p.get('min_price') || '')
+    setMaxPrice(p.get('max_price') || '')
+    setMaxStops(p.get('max_stops') || '')
+  }, [loc.search])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const params = new URLSearchParams()
-    if (origin) params.set('origin', origin)
-    if (destination) params.set('destination', destination)
-  if (date) params.set('date', date)
-    params.set('passengers', String(passengers))
-  nav(`/?${params.toString()}`)
+    if (origin) params.set('origin', origin.trim().toUpperCase())
+    if (destination) params.set('destination', destination.trim().toUpperCase())
+    if (date) params.set('date', date)
+    if (passengers) params.set('passengers', String(passengers))
+    if (minPrice) params.set('min_price', minPrice)
+    if (maxPrice) params.set('max_price', maxPrice)
+    if (maxStops) params.set('max_stops', maxStops)
+    nav(`/?${params.toString()}`)
     onSubmit?.()
   }
 
   return (
-    <form onSubmit={handleSubmit} style={formStyle}>
+  <form onSubmit={handleSubmit} style={formStyle}>
       <div style={fieldCol}> 
         <label style={labelStyle}>Origin</label>
         <input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="" style={inputStyle} />
@@ -40,6 +58,18 @@ export const QuickSearchForm: React.FC<Props> = ({ onSubmit }) => {
       <div style={fieldCol}> 
         <label style={labelStyle}>Passengers</label>
         <input type="number" min={1} value={passengers} onChange={e => setPassengers(Number(e.target.value)||1)} style={inputStyle} />
+      </div>
+      <div style={fieldCol}>
+        <label style={labelStyle}>Min Price</label>
+        <input value={minPrice} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMinPrice(v)}} style={inputStyle} />
+      </div>
+      <div style={fieldCol}>
+        <label style={labelStyle}>Max Price</label>
+        <input value={maxPrice} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxPrice(v)}} style={inputStyle} />
+      </div>
+      <div style={fieldCol}>
+        <label style={labelStyle}>Max Stops</label>
+        <input value={maxStops} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxStops(v)}} style={inputStyle} />
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end' }}>
         <button type="submit" style={submitBtn}>Search</button>
