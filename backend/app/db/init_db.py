@@ -1,34 +1,29 @@
 from datetime import datetime, timedelta
-from app.db.session import engine, SessionLocal
-from app.models import user  # noqa: F401
+from app.db.session import SessionLocal
+from app.models import user  # noqa: F401  (import side-effects: model registration for Alembic autogenerate if ever used)
 from app.models import company  # noqa: F401
 from app.models import company_manager  # noqa: F401
 from app.models import flight  # noqa: F401
 from app.models import ticket  # noqa: F401
-from app.models.base import Base
-from app.models.flight import Flight
+from app.models import banner  # noqa: F401
+from app.models import offer  # noqa: F401
 from app.models.company import Company
 from app.models.user import User
 from app.models.company_manager import CompanyManager
 from app.core.config import settings
 
-def create_tables():
-    Base.metadata.create_all(bind=engine)
-    # Lightweight migration: ensure tickets.price_paid exists (Postgres-friendly)
-    # Use a transaction so DDL is committed on Postgres
-    try:
-        with engine.begin() as conn:
-            conn.exec_driver_sql(
-                "ALTER TABLE IF EXISTS tickets ADD COLUMN IF NOT EXISTS price_paid NUMERIC(10,2)"
-            )
-    except Exception:
-        # Best-effort migration; ignore if database doesn't support this syntax
-        pass
+def create_tables():  # Backwards-compatible no-op: schema is now managed exclusively via Alembic migrations
+    """Deprecated. Kept as a no-op so older startup code doesn't create unmanaged tables.
+
+    Run migrations instead:
+        alembic upgrade head
+    """
+    return None
 
 def seed_demo_data():
     db = SessionLocal()
     try:
-        # ensure at least one demo company
+        # ensure at least one demo company (idempotent)
         demo_company = db.query(Company).filter(Company.name == "DemoAir").first()
         if not demo_company:
             demo_company = Company(name="DemoAir", is_active=True)

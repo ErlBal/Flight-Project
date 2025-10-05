@@ -1,0 +1,2 @@
+# Root consolidated requirements (backend primary deps)
+-r backend/requirements.txt

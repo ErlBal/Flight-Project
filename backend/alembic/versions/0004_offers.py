@@ -1,34 +1,35 @@
-"""banners table
+"""offers table
 
-Revision ID: 0003_banners
-Revises: 0002_notifications
-Create Date: 2025-10-04
+Revision ID: 0004_offers
+Revises: 0003_banners
+Create Date: 2025-10-05
 """
 from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '0003_banners'
-down_revision = '0002_notifications'
+revision = '0004_offers'
+down_revision = '0003_banners'
 branch_labels = None
 depends_on = None
 
 def upgrade():
     op.create_table(
-        'banners',
+        'offers',
         sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('title', sa.String(length=200), nullable=False),
-        sa.Column('image_url', sa.String(length=500), nullable=True),
-        sa.Column('link_url', sa.String(length=500), nullable=True),
+        sa.Column('subtitle', sa.String(length=300), nullable=True),
+        sa.Column('price_from', sa.Numeric(10,2), nullable=True),
+        sa.Column('flight_ref', sa.String(length=50), nullable=True),
         sa.Column('position', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('TRUE')),
-    # Используем CURRENT_TIMESTAMP вместо NOW() ради совместимости с SQLite
+    # SQLite не поддерживает NOW(); используем CURRENT_TIMESTAMP для кросс-СУБД простоты
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
     )
-    op.create_index('ix_banners_position', 'banners', ['position'])
+    op.create_index('ix_offers_position', 'offers', ['position'])
 
 
 def downgrade():
-    op.drop_index('ix_banners_position', table_name='banners')
-    op.drop_table('banners')
+    op.drop_index('ix_offers_position', table_name='offers')
+    op.drop_table('offers')

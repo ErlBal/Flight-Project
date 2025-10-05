@@ -16,7 +16,7 @@ def upgrade():
     op.create_table(
         'notifications',
         sa.Column('id', sa.Integer(), primary_key=True),
-        sa.Column('user_email', sa.String(length=255), nullable=False, index=True),
+        sa.Column('user_email', sa.String(length=255), nullable=False),  # explicit index created below
         sa.Column('type', sa.String(length=64), nullable=False),
         sa.Column('message', sa.String(length=1024), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
