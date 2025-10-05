@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query
+import logging
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from datetime import datetime
@@ -78,15 +79,20 @@ async def websocket_notifications(websocket: WebSocket, token: str = Query(...))
     Дополнительно возможно будущее: unread_count diff, ping/pong.
     """
     # Попытка декодировать токен
+    logger = logging.getLogger("notifications.ws")
     try:
         payload = decode_access_token(token)
         email = (payload.get("sub") or "").lower()
         if not email:
+            logger.warning("WS auth failed: empty sub in token")
             await websocket.close(code=4401)
             return
-    except Exception:
+    except Exception as e:
+        logger.warning("WS auth decode failed: %s", e.__class__.__name__)
         await websocket.close(code=4401)
         return
+
+    logger.debug("WS connect email=%s", email)
 
     await manager.connect(email, websocket)
     try:

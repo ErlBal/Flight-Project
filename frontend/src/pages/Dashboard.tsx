@@ -42,7 +42,12 @@ export default function Dashboard() {
     setError(null)
     try {
       const res = await api.get('/tickets/my')
-      setTickets(res.data)
+      // New backend format returns { items, total, page, ... }
+      const payload = res.data
+      const list = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.items) ? payload.items : [])
+      setTickets(list)
     } catch (err: any) {
       setError(extractErrorMessage(err?.response?.data) || 'Failed to load tickets')
     } finally {
