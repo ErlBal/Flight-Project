@@ -65,6 +65,12 @@ def seed_demo_data():
             db.add(admin)
             db.commit()
             db.refresh(admin)
+        elif settings.seed_update_passwords:
+            # Update existing admin password (dev convenience)
+            admin.hashed_password = get_password_hash(admin_pwd)
+            if admin.role != "admin":
+                admin.role = "admin"
+            db.commit()
 
         manager = db.query(User).filter(User.email == manager_email).first()
         if not manager:
@@ -78,6 +84,11 @@ def seed_demo_data():
             db.add(manager)
             db.commit()
             db.refresh(manager)
+        elif settings.seed_update_passwords:
+            manager.hashed_password = get_password_hash(manager_pwd)
+            if manager.role != "company_manager":
+                manager.role = "company_manager"
+            db.commit()
 
         # Ensure manager is assigned to DemoAir
         if manager:

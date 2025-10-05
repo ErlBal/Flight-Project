@@ -13,11 +13,13 @@ class Settings(BaseSettings):
     # Raw env values (strings), we parse them to lists via properties to avoid JSON decoding errors
     admin_emails_raw: Optional[str] = Field(default=None, alias="ADMIN_EMAILS")
     manager_emails_raw: Optional[str] = Field(default=None, alias="MANAGER_EMAILS")
+    cors_origins_raw: Optional[str] = Field(default=None, alias="CORS_ORIGINS", description="Comma or space separated list of allowed CORS origins")
     # Seed users (dev/demo convenience)
     seed_admin_email: Optional[str] = Field(default=None, alias="SEED_ADMIN_EMAIL")
     seed_admin_password: Optional[str] = Field(default=None, alias="SEED_ADMIN_PASSWORD")
     seed_manager_email: Optional[str] = Field(default=None, alias="SEED_MANAGER_EMAIL")
     seed_manager_password: Optional[str] = Field(default=None, alias="SEED_MANAGER_PASSWORD")
+    seed_update_passwords: bool = Field(default=False, alias="SEED_UPDATE_PASSWORDS")
 
     class Config:
         # Load env from backend/.env regardless of CWD
@@ -47,5 +49,13 @@ class Settings(BaseSettings):
     @property
     def manager_emails(self) -> List[str]:
         return self._parse_list(self.manager_emails_raw)
+
+    @property
+    def cors_origins(self) -> List[str]:
+        items = self._parse_list(self.cors_origins_raw)
+        # Fallback dev defaults if none provided
+        if not items:
+            return ["http://localhost:5173", "http://127.0.0.1:5173"]
+        return items
 
 settings = Settings()  # type: ignore

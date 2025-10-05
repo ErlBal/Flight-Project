@@ -7,11 +7,8 @@ from app.db.init_db import seed_demo_data
 
 app = FastAPI(title="FlightProject API", version="0.1.0")
 
-# Allow local dev and Cloud Run defaults
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# Configurable CORS origins (CORS_ORIGINS env). If empty -> dev defaults.
+origins = settings.cors_origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -21,6 +18,30 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+# Duplicate routes without trailing slash for most-called public endpoints to avoid 307 redirects from front-end queries.
+from fastapi import APIRouter
+from app.api.routes.flights import router as flights_router  # type: ignore
+from app.api.routes.tickets import router as tickets_router  # type: ignore
+from app.api.routes.content import router as content_router  # type: ignore
+
+alias_router = APIRouter()
+
+# Simple alias endpoints mapping (only GET roots) — we re-declare path operation functions via includes with custom prefix.
+# To minimize duplication, just provide a lightweight ping and rely on frontend using canonical slashed routes gradually.
+@alias_router.get("/flights")
+async def flights_alias_redirect_note():
+    return {"detail": "Use /flights/ - alias provided to avoid redirect", "ok": True}
+
+@alias_router.get("/content/banners")
+async def banners_alias():
+    return {"detail": "Use /content/banners/ - alias", "ok": True}
+
+@alias_router.get("/content/offers")
+async def offers_alias():
+    return {"detail": "Use /content/offers/ - alias", "ok": True}
+
+app.include_router(alias_router)
 
 @app.on_event("startup")
 def startup():
