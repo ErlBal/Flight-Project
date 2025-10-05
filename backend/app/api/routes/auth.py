@@ -4,6 +4,8 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, get_password_hash, verify_password
+from app.models.company_manager import CompanyManager
+from app.models.company import Company
 from app.core.config import settings
 from app.schemas.auth import Token, UserRegister, UserOut, UserLogin
 from app.db.session import get_db
@@ -34,7 +36,11 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         db.add(user)
         db.commit()
         db.refresh(user)
-    access_token = create_access_token(subject=email, roles=[role])
+    company_ids: list[int] = []
+    if user.role == "company_manager":
+        links = db.query(CompanyManager).filter(CompanyManager.user_id == user.id).all()
+        company_ids = [l.company_id for l in links]
+    access_token = create_access_token(subject=email, roles=[role], company_ids=company_ids)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/login-json", response_model=Token)
@@ -57,7 +63,11 @@ def login_json(payload: UserLogin, db: Session = Depends(get_db)):
         db.add(user)
         db.commit()
         db.refresh(user)
-    access_token = create_access_token(subject=email, roles=[role])
+    company_ids: list[int] = []
+    if user.role == "company_manager":
+        links = db.query(CompanyManager).filter(CompanyManager.user_id == user.id).all()
+        company_ids = [l.company_id for l in links]
+    access_token = create_access_token(subject=email, roles=[role], company_ids=company_ids)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=UserOut)

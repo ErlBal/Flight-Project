@@ -16,14 +16,20 @@ router = APIRouter(dependencies=[Depends(require_roles("admin"))])
 
 
 @router.get("/users", response_model=List[dict])
-def list_users(db: Session = Depends(get_db)):
+def list_users(company_id: int | None = None, db: Session = Depends(get_db)):
     """List users with company mapping for company managers.
 
     Adds fields:
       companies: list of company ids (if manager)
       company_names: list of company names (resolved)
     """
-    users = db.query(User).all()
+    q = db.query(User)
+    if company_id is not None:
+        # Filter only users who are managers of provided company
+        q = q.join(CompanyManager, isouter=True).filter(
+            (User.role != "company_manager") | (CompanyManager.company_id == company_id)
+        )
+    users = q.all()
     # Preload manager links & companies to avoid N+1
     manager_user_ids = [u.id for u in users if u.role == "company_manager"]
     links = []
@@ -181,5 +187,24 @@ def assign_manager(company_id: int, payload: dict, db: Session = Depends(get_db)
     if not link:
         link = CompanyManager(user_id=user.id, company_id=company.id)
         db.add(link)
+    db.commit()
+    return {"status": "ok"}
+
+
+@router.post("/companies/{company_id}/unassign-manager", response_model=dict)
+def unassign_manager(company_id: int, payload: dict, db: Session = Depends(get_db)):
+    email = (payload.get("email") or "").lower().strip()
+    if not email:
+        return {"error": "email required"}
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        return {"error": "company not found"}
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return {"error": "user not found"}
+    link = db.query(CompanyManager).filter(CompanyManager.user_id == user.id, CompanyManager.company_id == company.id).first()
+    if not link:
+        return {"status": "noop"}
+    db.delete(link)
     db.commit()
     return {"status": "ok"}

@@ -39,13 +39,30 @@ function UsersSection() {
   const [error, setError] = useState<string | null>(null)
   const [actioning, setActioning] = useState<Record<number, boolean>>({})
   const [refreshTick, setRefreshTick] = useState(0)
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [companiesLoading, setCompaniesLoading] = useState(false)
+  const [selectedCompany, setSelectedCompany] = useState<string>('')
+  const [unassigning, setUnassigning] = useState<Record<string, boolean>>({})
 
-  useEffect(() => { load() }, [refreshTick])
+  useEffect(() => { loadCompanies() }, [])
+  useEffect(() => { loadUsers() }, [refreshTick, selectedCompany])
 
-  const load = async () => {
+  const loadCompanies = async () => {
+    setCompaniesLoading(true)
+    try {
+      const r = await api.get('/admin/companies')
+      setCompanies(r.data || [])
+    } catch(e:any) {
+      // silent; optional list
+    } finally { setCompaniesLoading(false) }
+  }
+
+  const loadUsers = async () => {
     setLoading(true); setError(null)
     try {
-      const r = await api.get('/admin/users')
+      const params: any = {}
+      if (selectedCompany) params.company_id = selectedCompany
+      const r = await api.get('/admin/users', { params })
       setUsers(r.data || [])
     } catch(e:any){
       setError(extractErrorMessage(e?.response?.data) || 'Failed to load users')
@@ -53,24 +70,73 @@ function UsersSection() {
   }
 
   const toggleActive = async (u: AdminUser) => {
-    setActioning((a: Record<number, boolean>) => ({ ...a, [u.id]: true }))
+    setActioning(a => ({ ...a, [u.id]: true }))
     try {
-      if (u.is_active) {
-        await api.post(`/admin/users/${u.id}/block`)
-      } else {
-        await api.post(`/admin/users/${u.id}/unblock`)
-      }
-  setRefreshTick((x:number) => x+1)
+      if (u.is_active) await api.post(`/admin/users/${u.id}/block`)
+      else await api.post(`/admin/users/${u.id}/unblock`)
+      setRefreshTick(x=>x+1)
     } catch(e:any) {
       alert(extractErrorMessage(e?.response?.data) || 'Action failed')
     } finally {
-  setActioning((a: Record<number, boolean>) => ({ ...a, [u.id]: false }))
+      setActioning(a => ({ ...a, [u.id]: false }))
     }
+  }
+
+  const unassign = async (companyId: number, email: string) => {
+    const key = companyId+':'+email
+    if (!confirm('Unassign this manager from the company?')) return
+    setUnassigning(u => ({ ...u, [key]: true }))
+    try {
+      await api.post(`/admin/companies/${companyId}/unassign-manager`, { email })
+      setRefreshTick(x=>x+1)
+    } catch(e:any) {
+      alert(extractErrorMessage(e?.response?.data) || 'Unassign failed')
+    } finally {
+      setUnassigning(u => ({ ...u, [key]: false }))
+    }
+  }
+
+  const renderCompaniesCell = (u: AdminUser) => {
+    if (u.role !== 'company_manager') return '—'
+    const names = u.company_names || []
+    if (!names.length) return '—'
+    const shown = names.slice(0,2)
+    const extra = names.length - shown.length
+    const label = shown.join(', ') + (extra>0 ? ` +${extra}` : '')
+    const title = names.join(', ')
+    return (
+      <div title={title} style={{ display:'flex', flexDirection:'column', gap:4 }}>
+        <span>{label}</span>
+        {/* Unassign buttons for each company */}
+        <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+          {(u.companies||[]).map((cid, idx) => (
+            <button
+              key={cid}
+              type='button'
+              title={`Unassign ${names[idx]||'company'} from manager`}
+              onClick={() => unassign(cid, u.email)}
+              disabled={unassigning[cid+':'+u.email]}
+              style={{ padding:'2px 6px', fontSize:11, background:'#fee', border:'1px solid #f99', borderRadius:3, cursor:'pointer' }}
+            >{unassigning[cid+':'+u.email] ? '...' : 'x ' + (names[idx]?.slice(0,12)||'')}</button>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
       <h3 style={{ marginTop:0 }}>Users</h3>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+        <label style={{ fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
+          <span>Company filter:</span>
+          <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} disabled={companiesLoading}>
+            <option value=''>All</option>
+            {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </label>
+        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+      </div>
       {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
       {!loading && !error && users.length === 0 && <p>No users yet.</p>}
@@ -93,7 +159,7 @@ function UsersSection() {
                   <td style={td}>{u.email}</td>
                   <td style={td}>{u.full_name}</td>
                   <td style={td}>{u.role}</td>
-                  <td style={td}>{u.role === 'company_manager' ? (u.company_names?.length ? u.company_names.join(', ') : '—') : '—'}</td>
+                  <td style={td}>{renderCompaniesCell(u)}</td>
                   <td style={td}>{u.is_active ? 'Yes' : 'No'}</td>
                   <td style={{ ...td }}>
                     <button
@@ -108,9 +174,6 @@ function UsersSection() {
           </table>
         </div>
       )}
-      <div style={{ marginTop:10, display:'flex', gap:8 }}>
-        <button onClick={load} disabled={loading}>Reload</button>
-      </div>
     </div>
   )
 }

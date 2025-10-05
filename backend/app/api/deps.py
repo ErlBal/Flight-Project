@@ -24,7 +24,10 @@ def require_roles(*allowed: str):
     return checker
 
 def get_current_identity(token: str = Depends(oauth2_scheme)) -> Tuple[str, List[str]]:
-    """Return (email, roles) from the JWT token."""
+    """Return (email, roles) from the JWT token.
+
+    (Keeping signature backward-compatible; company_ids can be fetched separately if needed.)
+    """
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         sub = payload.get("sub")
