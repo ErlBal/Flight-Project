@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import styles from '../styles/dashboard.module.css'
 import api, { extractErrorMessage } from '../lib/api'
 
 type Ticket = {
@@ -104,23 +105,23 @@ export default function Dashboard() {
   // Removed search form logic; flights list can be simplified or repurposed later.
 
   return (
-    <div>
-  <h2>My Flights</h2>
-      {/* User info panel removed as per request */}
-  <Flights
-    tickets={tickets}
-    reload={loadTickets}
-    setModalTicket={setModalTicket}
-    page={page}
-    setPage={setPage}
-    pageSize={PAGE_SIZE}
-    filterCid={filterCid}
-    setFilterCid={setFilterCid}
-    filterStatus={filterStatus}
-    setFilterStatus={setFilterStatus}
-    loading={loading}
-  />
-  <ReminderModal ticket={modalTicket} onClose={()=>{ setModalTicket(null); setCustomInput('') }} refresh={loadTickets} remOps={remOps} setRemOps={setRemOps} customInput={customInput} setCustomInput={setCustomInput} />
+    <div className={styles.dashboardRoot}>
+      <h2>My Flights</h2>
+      <Flights
+        tickets={tickets}
+        reload={loadTickets}
+        setModalTicket={setModalTicket}
+        page={page}
+        setPage={setPage}
+        pageSize={PAGE_SIZE}
+        filterCid={filterCid}
+        setFilterCid={setFilterCid}
+        filterStatus={filterStatus}
+        setFilterStatus={setFilterStatus}
+        loading={loading}
+        setTickets={setTickets}
+      />
+      <ReminderModal ticket={modalTicket} onClose={()=>{ setModalTicket(null); setCustomInput('') }} refresh={loadTickets} remOps={remOps} setRemOps={setRemOps} customInput={customInput} setCustomInput={setCustomInput} />
       {loading && <p>Loading...</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {!loading && !error && tickets.length === 0 && <p>No tickets yet.</p>}
@@ -140,9 +141,10 @@ interface FlightsProps {
   filterStatus: string
   setFilterStatus: (v: string) => void
   loading: boolean
+  setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>
 }
 
-function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, filterCid, setFilterCid, filterStatus, setFilterStatus, loading }: FlightsProps) {
+function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, filterCid, setFilterCid, filterStatus, setFilterStatus, loading, setTickets }: FlightsProps) {
   // Include both future & past (sorted by departure desc for history)
   const enriched = tickets.filter(t => t.flight?.departure).map(t => ({ t, depTs: Date.parse(t.flight!.departure) }))
   enriched.sort((a,b)=> b.depTs - a.depTs)
@@ -150,16 +152,27 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
   const slice = enriched.slice(start, start + pageSize)
   const totalPages = Math.max(1, Math.ceil(enriched.length / pageSize))
 
+  // Interval tick for live remaining-time refresh every 60s
+  const [, setNowTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(v => v + 1), 60000) // 1 minute
+    return () => clearInterval(id)
+  }, [])
+
+  const removePast = (cid: string) => {
+    setTickets(prev => prev.filter(t => t.confirmation_id !== cid))
+  }
+
   return (
     <div style={{ margin:'12px 0' }}>
       <h3 style={{ marginTop:0 }}>Flights</h3>
-      <div style={{ display:'flex', flexWrap:'wrap', gap:12, marginBottom:12 }}>
-        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-          <label style={lbl}>Confirmation</label>
+      <div className={styles.filtersRow}>
+        <div className={styles.filterGroup}>
+          <label className={styles.label}>Confirmation</label>
           <input value={filterCid} onChange={e=>{ setFilterCid(e.target.value.toUpperCase()); setPage(1) }} placeholder='Start of ID' style={{ padding:4 }} />
         </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-          <label style={lbl}>Status</label>
+        <div className={styles.filterGroup}>
+          <label className={styles.label}>Status</label>
           <select value={filterStatus} onChange={e=>{ setFilterStatus(e.target.value); setPage(1) }} style={{ padding:4 }}>
             <option value=''>All</option>
             <option value='paid'>paid</option>
@@ -171,36 +184,41 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
           <button disabled={loading} onClick={()=>reload()}>Apply</button>
           <button disabled={loading} onClick={()=>{ setFilterCid(''); setFilterStatus(''); setPage(1); reload() }}>Reset</button>
         </div>
-        <div style={{ marginLeft:'auto', display:'flex', alignItems:'flex-end', gap:8 }}>
+        <div className={styles.pagingControls}>
           <button disabled={page<=1} onClick={()=>setPage(Math.max(1, page-1))}>Prev</button>
-          <span style={{ fontSize:12, opacity:.7 }}>Page {page} / {totalPages}</span>
+          <span className={styles.pageInfo}>Page {page} / {totalPages}</span>
           <button disabled={page>=totalPages} onClick={()=>setPage(Math.min(totalPages, page+1))}>Next</button>
         </div>
       </div>
-      <ul style={{ listStyle:'none', padding:0, margin:0, display:'flex', flexDirection:'column', gap:10 }}>
+      <ul className={styles.flightsList}>
         {slice.map(({ t, depTs }) => {
-          const msLeft = depTs - Date.now()
-          const past = msLeft <= 0
-          return (
-            <li key={t.confirmation_id} style={{ border:'1px solid #ddd', borderRadius:8, padding:10, background: past ? '#f8f9fa' : '#ffffff' }}>
-              <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:8 }}>
-                <div style={{ fontSize:14 }}>
-                  <strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}
+            const msLeft = depTs - Date.now()
+            const past = msLeft <= 0
+            const hoursLeft = msLeft / 3600000
+            const urgencyHigh = !past && hoursLeft <= 2
+            const urgencyMed = !past && !urgencyHigh && hoursLeft <= 24
+            const itemClass = [styles.flightItem, past ? styles.flightPast : '', urgencyHigh ? styles.urgencyHigh : '', urgencyMed ? styles.urgencyMedium : ''].filter(Boolean).join(' ')
+            const remainText = formatRemain(msLeft)
+            return (
+              <li key={t.confirmation_id} className={itemClass}>
+                <div className={styles.flightHeader}>
+                  <div style={{ fontSize:14 }}>
+                    <strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}
+                  </div>
+                  <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                    <span className={styles.statusBadge}>{t.status}</span>
+                    {!past && t.status === 'paid' && (
+                      <button className={styles.btnTiny} onClick={()=> setModalTicket(t)}>Reminders</button>
+                    )}
+                    {past && <button className={styles.btnTiny} onClick={()=>{ if(confirm('Удалить запись о рейсе из списка? (Не влияет на сервер)')) removePast(t.confirmation_id) }}>Remove</button>}
+                  </div>
                 </div>
-                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                  <span style={{ fontSize:11, background:'#f1f5f9', padding:'2px 6px', borderRadius:4 }}>{t.status}</span>
-                  {!past && t.status === 'paid' && (
-                    <button style={{ fontSize:11, padding:'3px 8px' }} onClick={()=> setModalTicket(t)}>Reminders</button>
-                  )}
-                  {past && <button style={{ fontSize:11, padding:'3px 8px' }} onClick={()=>{ if(confirm('Удалить запись о рейсе из списка? (Не влияет на сервер)')) {/* local remove only */} }}>Past</button>}
+                <div className={styles.flightMeta}>
+                  Dep: {t.flight ? new Date(depTs).toLocaleString() : '—'} | <span className={(urgencyHigh? styles.urgencyTextHigh : urgencyMed? styles.urgencyTextMedium : '')}>In: {remainText}</span> | Ticket: {t.confirmation_id}
                 </div>
-              </div>
-              <div style={{ fontSize:12, opacity:.75, marginTop:4 }}>
-                Dep: {t.flight ? new Date(depTs).toLocaleString() : '—'} | In: {formatRemain(msLeft)} | Ticket: {t.confirmation_id}
-              </div>
-            </li>
-          )
-        })}
+              </li>
+            )
+          })}
         {slice.length === 0 && !loading && <li style={{ fontSize:13, opacity:.7 }}>No tickets.</li>}
       </ul>
     </div>
@@ -237,9 +255,9 @@ function ReminderModal({ ticket, onClose, refresh, remOps, setRemOps, customInpu
     try { await api.delete(`/tickets/${ticket.confirmation_id}/reminder/${custom.id}`); await refresh() } catch(e:any){ alert(extractErrorMessage(e?.response?.data) || 'Failed') } finally { setRemOps(false) }
   }
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:200 }}>
-      <div style={{ background:'#fff', padding:20, borderRadius:8, width:'min(480px, 92%)', maxHeight:'80vh', overflow:'auto', boxShadow:'0 8px 28px rgba(0,0,0,.25)', display:'flex', flexDirection:'column', gap:14 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+    <div className={styles.modalBackdrop}>
+      <div className={styles.modalPanel}>
+        <div className={styles.modalHeader}>
           <h3 style={{ margin:0, fontSize:18 }}>Reminders</h3>
           <button onClick={onClose} style={{ fontSize:13 }}>×</button>
         </div>
@@ -250,30 +268,30 @@ function ReminderModal({ ticket, onClose, refresh, remOps, setRemOps, customInpu
         <div style={{ fontSize:12 }}>
           Standard:&nbsp;
           {standardRems.length ? standardRems.map(r=> (
-            <span key={r.id} style={{ display:'inline-block', background:r.sent?'#d1fae5':'#e0f2fe', border:'1px solid #94a3b8', padding:'2px 6px', borderRadius:12, marginRight:6, marginBottom:4 }} title={r.sent? 'Sent':'Scheduled'}>{r.hours_before}h{r.sent?' ✓':''}</span>
+            <span key={r.id} className={r.sent ? `${styles.stdRemBadge} ${styles.stdRemBadgeSent}` : styles.stdRemBadge} title={r.sent? 'Sent':'Scheduled'}>{r.hours_before}h{r.sent?' ✓':''}</span>
           )) : <span style={{ opacity:.6 }}>auto scheduling...</span>}
         </div>
         <div style={{ fontSize:12 }}>
           Custom:&nbsp;
           {custom ? (
-            <span style={{ display:'inline-flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
-              <span style={{ background:custom.sent?'#d1fae5':'#fef9c3', border:'1px solid #facc15', padding:'2px 6px', borderRadius:12, fontSize:12 }} title={custom.sent? 'Sent':'Scheduled'}>{custom.hours_before}h{custom.sent?' ✓':''}</span>
+            <span className={styles.customInline}>
+              <span className={custom.sent ? `${styles.customRemBadge} ${styles.customRemBadgeSent}` : styles.customRemBadge} title={custom.sent? 'Sent':'Scheduled'}>{custom.hours_before}h{custom.sent?' ✓':''}</span>
               {!custom.sent && (
                 <>
-                  <input type='number' min={1} max={240} value={customInput || String(custom.hours_before)} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} style={{ width:70, fontSize:12 }} />
+                  <input type='number' min={1} max={240} value={customInput || String(custom.hours_before)} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall} />
                   <button disabled={remOps} onClick={updateExisting}>Update</button>
                 </>
               )}
               <button disabled={remOps} onClick={deleteCustom}>Delete</button>
             </span>
           ) : (
-            <span style={{ display:'inline-flex', gap:6, alignItems:'center' }}>
-              <input type='number' min={1} max={240} value={customInput} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} style={{ width:70, fontSize:12 }} />
+            <span className={styles.customInline}>
+              <input type='number' min={1} max={240} value={customInput} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall} />
               <button disabled={remOps} onClick={setReminder}>Add</button>
             </span>
           )}
         </div>
-        <div style={{ fontSize:11, opacity:.6 }}>Standard reminders (24h & 2h) создаются автоматически. Custom — один на билет.</div>
+        <div className={styles.infoNote}>Standard reminders (24h & 2h) создаются автоматически. Custom — один на билет.</div>
       </div>
     </div>
   )

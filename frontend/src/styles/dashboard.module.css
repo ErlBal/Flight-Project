@@ -1,0 +1,32 @@
+/* .dashboardRoot reserved for future layout hooks */
+
+.filtersRow { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:12px; }
+.filterGroup { display:flex; flex-direction:column; gap:4px; }
+.label { font-size:11px; text-transform:uppercase; letter-spacing:.5px; font-weight:600; }
+.pagingControls { margin-left:auto; display:flex; align-items:flex-end; gap:8px; }
+.pageInfo { font-size:12px; opacity:.7; }
+.flightsList { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
+.flightItem { border:1px solid #ddd; border-radius:8px; padding:10px; background:#fff; transition:background .25s, border-color .25s; }
+.flightPast { background:#f8f9fa; }
+.flightHeader { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; }
+.flightMeta { font-size:12px; opacity:.75; margin-top:4px; }
+.statusBadge { font-size:11px; background:#f1f5f9; padding:2px 6px; border-radius:4px; }
+.btnTiny { font-size:11px; padding:3px 8px; }
+/* .remindersBtn placeholder removed */
+.urgencyMedium { border-color:#facc15; }
+.urgencyHigh { border-color:#ef4444; }
+.urgencyTextHigh { color:#b91c1c; }
+.urgencyTextMedium { color:#92400e; }
+.remainingBox { font-size:12px; }
+
+/* Modal */
+.modalBackdrop { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:200; }
+.modalPanel { background:#fff; padding:20px; border-radius:8px; width:min(480px,92%); max-height:80vh; overflow:auto; box-shadow:0 8px 28px rgba(0,0,0,.25); display:flex; flex-direction:column; gap:14px; }
+.modalHeader { display:flex; justify-content:space-between; align-items:center; }
+.stdRemBadge { display:inline-block; background:#e0f2fe; border:1px solid #94a3b8; padding:2px 6px; border-radius:12px; margin-right:6px; margin-bottom:4px; font-size:12px; }
+.stdRemBadgeSent { background:#d1fae5; }
+.customRemBadge { background:#fef9c3; border:1px solid #facc15; padding:2px 6px; border-radius:12px; font-size:12px; }
+.customRemBadgeSent { background:#d1fae5; border-color:#10b981; }
+.infoNote { font-size:11px; opacity:.6; }
+.customInline { display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap; }
+.numberInputSmall { width:70px; font-size:12px; }
