@@ -16,33 +16,34 @@ from datetime import datetime, timedelta
 router = APIRouter(dependencies=[Depends(require_roles("company_manager", "admin"))])
 
 
-def _get_manager_company_id(db: Session, email: str) -> Optional[int]:
-    # Primary: use CompanyManager association
+def _get_manager_company_ids(db: Session, email: str) -> list[int]:
+    """Return list of company ids for manager email."""
     user = db.query(User).filter(User.email == email).first()
     if not user:
-        return None
-    link = db.query(CompanyManager).filter(CompanyManager.user_id == user.id).first()
-    if link:
-        return link.company_id
-    # Fallback: name heuristic then first active company
+        return []
+    links = db.query(CompanyManager).filter(CompanyManager.user_id == user.id).all()
+    if links:
+        return [l.company_id for l in links]
+    # Fallback legacy (single heuristic)
     if user.full_name:
         company = db.query(Company).filter(Company.name == user.full_name).first()
         if company:
-            return company.id
-    company = db.query(Company).filter(Company.is_active == True).first()
-    return company.id if company else None
+            return [company.id]
+    fallback = db.query(Company).filter(Company.is_active == True).first()
+    return [fallback.id] if fallback else []
 
 
 @router.get("/flights", response_model=List[dict])
-def list_company_flights(
-    db: Session = Depends(get_db),
-    identity=Depends(get_current_identity),
-):
-    email, _roles = identity
-    company_id = _get_manager_company_id(db, email)
-    if not company_id:
-        return []
-    flights = db.query(Flight).filter(Flight.company_id == company_id).all()
+def list_company_flights(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    email, roles = identity
+    # Admin can see all flights (for reuse of this endpoint if needed)
+    if "admin" in roles:
+        flights = db.query(Flight).all()
+    else:
+        company_ids = _get_manager_company_ids(db, email)
+        if not company_ids:
+            return []
+        flights = db.query(Flight).filter(Flight.company_id.in_(company_ids)).all()
     return [
         {
             "id": f.id,
@@ -63,10 +64,16 @@ def list_company_flights(
 
 @router.post("/flights", response_model=dict)
 def create_company_flight(payload: dict, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
-    email, _roles = identity
-    company_id = _get_manager_company_id(db, email)
-    if not company_id:
-        raise HTTPException(status_code=400, detail="No company mapped for manager")
+    email, roles = identity
+    if "admin" in roles:
+        company_id = payload.get("company_id")
+        if not company_id:
+            raise HTTPException(status_code=400, detail="company_id required for admin created flight")
+    else:
+        company_ids = _get_manager_company_ids(db, email)
+        if not company_ids:
+            raise HTTPException(status_code=400, detail="No company mapped for manager")
+        company_id = company_ids[0]  # default create first company
     f = Flight(
         airline=payload.get("airline", ""),
         flight_number=payload.get("flight_number", ""),
@@ -87,12 +94,12 @@ def create_company_flight(payload: dict, db: Session = Depends(get_db), identity
 
 @router.put("/flights/{flight_id}", response_model=dict)
 def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
-    email, _roles = identity
-    company_id = _get_manager_company_id(db, email)
+    email, roles = identity
+    company_ids = _get_manager_company_ids(db, email) if "admin" not in roles else []
     f = db.query(Flight).filter(Flight.id == flight_id).first()
     if not f:
         raise HTTPException(status_code=404, detail="Flight not found")
-    if company_id and f.company_id and f.company_id != company_id:
+    if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
     # 1. нельзя редактировать прошлый рейс
     now = datetime.utcnow()
@@ -153,12 +160,12 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
 
 @router.delete("/flights/{flight_id}", response_model=dict)
 def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
-    email, _roles = identity
-    company_id = _get_manager_company_id(db, email)
+    email, roles = identity
+    company_ids = _get_manager_company_ids(db, email) if "admin" not in roles else []
     f = db.query(Flight).filter(Flight.id == flight_id).first()
     if not f:
         raise HTTPException(status_code=404, detail="Flight not found")
-    if company_id and f.company_id and f.company_id != company_id:
+    if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
     now = datetime.utcnow()
     if f.departure <= now:
@@ -183,12 +190,12 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
 
 @router.get("/flights/{flight_id}/passengers", response_model=List[dict])
 def list_passengers(flight_id: int, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
-    email, _roles = identity
-    company_id = _get_manager_company_id(db, email)
+    email, roles = identity
+    company_ids = _get_manager_company_ids(db, email) if "admin" not in roles else []
     f = db.query(Flight).filter(Flight.id == flight_id).first()
     if not f:
         raise HTTPException(status_code=404, detail="Flight not found")
-    if company_id and f.company_id and f.company_id != company_id:
+    if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
     tickets = db.query(Ticket).filter(Ticket.flight_id == flight_id, Ticket.status == "paid").all()
     return [
@@ -220,39 +227,56 @@ def _time_range(filter_name: str):
 
 @router.get("/stats", response_model=dict)
 def company_stats(range: str = "all", db: Session = Depends(get_db), identity=Depends(get_current_identity)):
-    email, _roles = identity
-    company_id = _get_manager_company_id(db, email)
-    if not company_id:
+    email, roles = identity
+    company_ids = _get_manager_company_ids(db, email)
+    if "admin" in roles:
+        # aggregate for all companies (admin perspective) - reuse structure
+        company_ids = [c.id for c in db.query(Company).all()]
+    if not company_ids:
         return {"flights": 0, "active": 0, "completed": 0, "passengers": 0, "revenue": 0.0, "seats_capacity": 0, "seats_sold": 0, "load_factor": 0.0}
     start, end = _time_range(range)
 
-    fq = db.query(Flight).filter(Flight.company_id == company_id)
+    fq = db.query(Flight).filter(Flight.company_id.in_(company_ids))
     if start and end:
         fq = fq.filter(Flight.departure >= start, Flight.departure < end)
     flights_total = fq.count()
 
     # Seats capacity for flights in selected range
-    seats_capacity = db.query(func.coalesce(func.sum(Flight.seats_total), 0)).filter(Flight.company_id == company_id)
+    seats_capacity = db.query(func.coalesce(func.sum(Flight.seats_total), 0)).filter(Flight.company_id.in_(company_ids))
     if start and end:
         seats_capacity = seats_capacity.filter(Flight.departure >= start, Flight.departure < end)
     seats_capacity = seats_capacity.scalar() or 0
 
     now = datetime.utcnow()
-    active = db.query(Flight).filter(Flight.company_id == company_id, Flight.departure > now).count()
-    completed = db.query(Flight).filter(Flight.company_id == company_id, Flight.departure <= now).count()
+    active = db.query(Flight).filter(Flight.company_id.in_(company_ids), Flight.departure > now).count()
+    completed = db.query(Flight).filter(Flight.company_id.in_(company_ids), Flight.departure <= now).count()
 
-    tq = db.query(Ticket).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id == company_id, Ticket.status == "paid")
+    tq = db.query(Ticket).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id.in_(company_ids), Ticket.status == "paid")
     if start and end:
         tq = tq.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
     passengers = tq.count()
-    revenue = db.query(func.coalesce(func.sum(Ticket.price_paid), 0)).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id == company_id, Ticket.status == "paid")
+    revenue = db.query(func.coalesce(func.sum(Ticket.price_paid), 0)).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id.in_(company_ids), Ticket.status == "paid")
     if start and end:
         revenue = revenue.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
     revenue = revenue.scalar() or 0
     # Seats sold (paid tickets) in selected range
-    seats_sold_q = db.query(func.count(Ticket.id)).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id == company_id, Ticket.status == "paid")
+    seats_sold_q = db.query(func.count(Ticket.id)).join(Flight, Ticket.flight_id == Flight.id).filter(Flight.company_id.in_(company_ids), Ticket.status == "paid")
     if start and end:
         seats_sold_q = seats_sold_q.filter(Ticket.purchased_at >= start, Ticket.purchased_at < end)
     seats_sold = seats_sold_q.scalar() or 0
     load_factor = float(seats_sold) / float(seats_capacity) if seats_capacity else 0.0
     return {"flights": flights_total, "active": active, "completed": completed, "passengers": passengers, "revenue": float(revenue), "seats_capacity": int(seats_capacity), "seats_sold": int(seats_sold), "load_factor": load_factor}
+
+
+@router.get("/info", response_model=dict)
+def company_info(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    """Return list of companies (id, name) accessible to current manager or all for admin."""
+    email, roles = identity
+    if "admin" in roles:
+        companies = db.query(Company).all()
+    else:
+        ids = _get_manager_company_ids(db, email)
+        if not ids:
+            return {"companies": []}
+        companies = db.query(Company).filter(Company.id.in_(ids)).all()
+    return {"companies": [{"id": c.id, "name": c.name} for c in companies]}

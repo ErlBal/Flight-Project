@@ -69,6 +69,7 @@ export default function CompanyDashboard() {
   const [stats, setStats] = useState<CompanyStats | null>(null)
   const [statsRange, setStatsRange] = useState<'all'|'today'|'week'|'month'>('all')
   const [loadingStats, setLoadingStats] = useState(false)
+  const [companyNames, setCompanyNames] = useState<string[]>([])
 
   const load = async () => {
     setLoading(true)
@@ -131,6 +132,15 @@ export default function CompanyDashboard() {
 
   useEffect(() => { load() }, [])
   useEffect(() => { loadStats() }, [statsRange])
+  useEffect(() => { loadCompanyInfo() }, [])
+
+  const loadCompanyInfo = async () => {
+    try {
+      const r = await api.get('/company/info')
+      const names = (r.data?.companies || []).map((c:any)=>c.name).filter(Boolean)
+      setCompanyNames(names)
+    } catch { /* silent */ }
+  }
 
   const startEdit = (f:CompanyFlight) => {
     setEditingId(f.id)
@@ -219,7 +229,7 @@ export default function CompanyDashboard() {
         <input type='number' placeholder='stops' value={form.stops} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, stops: e.target.value }))} min={0} />
   <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
       </form>
-  <h3 style={{ marginTop:24 }}>My flights</h3>
+  <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? `${companyNames[0]} flights` : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
   {loading && <p>Loading...</p>}
   {error && <p style={{ color:'red' }}>{error}</p>}
       <ul style={{ listStyle:'none', padding:0 }}>
