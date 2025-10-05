@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.ticket import Ticket
 from app.models.notification import Notification
 from app.models.company_manager import CompanyManager
+from app.services.notification_ws import manager as ws_manager
 from sqlalchemy import func
 from datetime import datetime, timedelta
 
@@ -145,14 +146,38 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
             for k, diff in changed_fields.items():
                 summary_parts.append(f"{k}: {fmt_val(diff['old'])} -> {fmt_val(diff['new'])}")
             summary = ", ".join(summary_parts)[:900]
+            created_notifications: list[Notification] = []
+            # Группируем по user_email чтобы не слать по одному за каждый билет
+            from collections import defaultdict
+            by_user: dict[str, int] = defaultdict(int)
             for t in tickets_paid:
+                by_user[t.user_email] += 1
+            for user_email, count in by_user.items():
+                suffix = "" if count == 1 else f" (билетов: {count})"
                 n = Notification(
-                    user_email=t.user_email,
+                    user_email=user_email,
                     type="flight_update",
-                    message=f"Ваш рейс {f.flight_number} обновлён: {summary}"
+                    message=f"Ваш рейс {f.flight_number} обновлён: {summary}{suffix}"
                 )
                 db.add(n)
+                created_notifications.append(n)
             db.commit()
+            # Push через WebSocket (fire & forget)
+            import asyncio
+            async def _push():
+                for n in created_notifications:
+                    await ws_manager.send_to_user(n.user_email, {"type": "notification", "data": {
+                        "id": n.id,
+                        "type": n.type,
+                        "message": n.message,
+                        "created_at": n.created_at.isoformat(),
+                        "read": n.read,
+                    }})
+            try:
+                asyncio.create_task(_push())
+            except RuntimeError:
+                # Если нет текущего loop (например в sync контексте Uvicorn workers) — игнор
+                pass
 
     return {"status": "ok", "changed": list(changed_fields.keys())}
 
@@ -174,17 +199,40 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
     # Найти все оплаченные билеты и сделать refund + уведомления
     tickets_paid = db.query(Ticket).filter(Ticket.flight_id == f.id, Ticket.status == "paid").all()
     refund_count = 0
+    created_notifications: list[Notification] = []
+    from collections import defaultdict
+    user_ticket_counts: dict[str, int] = defaultdict(int)
     for t in tickets_paid:
         t.status = "refunded"
         refund_count += 1
-        db.add(Notification(
-            user_email=t.user_email,
+        user_ticket_counts[t.user_email] += 1
+    for user_email, count in user_ticket_counts.items():
+        plural = "" if count == 1 else f" (билетов: {count})"
+        n = Notification(
+            user_email=user_email,
             type="flight_cancel",
-            message=f"Ваш рейс {f.flight_number} отменён. Билет {t.confirmation_id} возвращён (refund)."
-        ))
+            message=f"Ваш рейс {f.flight_number} отменён. Возврат билетов: {count}{plural}."
+        )
+        db.add(n)
+        created_notifications.append(n)
 
     db.delete(f)
     db.commit()
+    # WS push
+    import asyncio
+    async def _push():
+        for n in created_notifications:
+            await ws_manager.send_to_user(n.user_email, {"type": "notification", "data": {
+                "id": n.id,
+                "type": n.type,
+                "message": n.message,
+                "created_at": n.created_at.isoformat(),
+                "read": n.read,
+            }})
+    try:
+        asyncio.create_task(_push())
+    except RuntimeError:
+        pass
     return {"status": "deleted", "refunded_tickets": refund_count}
 
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { getToken } from '../lib/auth'
 import api, { extractErrorMessage } from '../lib/api'
 
 interface NotificationItem {
@@ -43,6 +44,63 @@ export default function NotificationsBell({ onAnyAction }: Props) {
       setUnreadCount(r.data?.unread || 0)
     } catch { /* тихо */ }
   }
+
+  // --- WebSocket real-time ---
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimer = useRef<number | null>(null)
+  const reconnectAttempts = useRef(0)
+
+  const setupWebSocket = () => {
+    const token = getToken()
+    if (!token) return
+    // Avoid duplicate
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return
+  // Берём base API из axios инстанса, чтобы не ошибиться портом
+  const apiBase = (api.defaults.baseURL || window.location.origin).replace(/\/$/, '')
+  const wsBase = apiBase.replace(/^http/, 'ws')
+  // Наш websocket endpoint смонтирован по тому же префиксу что и REST (без дополнительного /api если его нет в baseURL)
+  const url = `${wsBase}/notifications/ws/notifications?token=${encodeURIComponent(token)}`
+    const ws = new WebSocket(url)
+    wsRef.current = ws
+    ws.onopen = () => {
+      reconnectAttempts.current = 0
+    }
+    ws.onmessage = (ev) => {
+      try {
+        const payload = JSON.parse(ev.data)
+        if (payload?.type === 'notification' && payload.data) {
+          setItems(prev => {
+            // Защита от дублей по id
+            if (prev.find(p => p.id === payload.data.id)) return prev
+            return [payload.data, ...prev].slice(0, 200)
+          })
+          if (!payload.data.read) setUnreadCount(c => c + 1)
+        }
+      } catch { /* ignore */ }
+    }
+    ws.onclose = () => {
+      scheduleReconnect()
+    }
+    ws.onerror = () => {
+      try { ws.close() } catch {/*ignore*/}
+    }
+  }
+
+  const scheduleReconnect = () => {
+    if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current)
+    if (reconnectAttempts.current > 6) return // ~ограничение
+    const delay = Math.min(10000, 1000 * Math.pow(2, reconnectAttempts.current))
+    reconnectAttempts.current += 1
+    reconnectTimer.current = window.setTimeout(setupWebSocket, delay)
+  }
+
+  useEffect(() => {
+    setupWebSocket()
+    return () => {
+      if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current)
+      if (wsRef.current) wsRef.current.close()
+    }
+  }, [])
 
   const markOne = async (id: number) => {
     try {

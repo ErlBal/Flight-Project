@@ -52,10 +52,14 @@ export default function Dashboard() {
 
   const cancel = async (id: string) => {
     try {
+      // Оптимистично помечаем локально
+      setTickets(ts => ts.map(t => t.confirmation_id === id ? { ...t, status: 'refunded' } : t))
       await api.post(`/tickets/${id}/cancel`)
-      await loadTickets()
+      // Опционально можно перезагрузить позже; сейчас не вызываем loadTickets() чтобы избежать дерганий
     } catch (err: any) {
       alert(extractErrorMessage(err?.response?.data) || 'Cancel failed')
+      // Rollback при ошибке (перезагрузка списка)
+      await loadTickets()
     }
   }
 

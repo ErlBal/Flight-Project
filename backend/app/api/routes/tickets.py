@@ -170,7 +170,9 @@ def cancel_ticket(confirmation_id: str, db: Session = Depends(get_db), identity=
     if time_left < timedelta(hours=24):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot cancel within 24 hours of departure")
     # Early cancellation: return seat & mark refunded
+    # Возвращаем место
     f.seats_available += 1
+    # TODO: при наличии отдельного ws канала обновления рейсов можно пушить изменение seats_available
     t.status = "refunded"
     db.commit()
     return {"status": t.status}

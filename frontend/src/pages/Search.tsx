@@ -80,14 +80,26 @@ export default function Search() {
     setBuying(b => ({ ...b, [flightId]: true }))
     try {
       const quantity = quantities[flightId] || 1
+      // Оптимистичное уменьшение seats_available
+      let rollbackNeeded = false
+      setFlights(fs => fs.map(f => {
+        if (f.id === flightId) {
+          if (f.seats_available < quantity) return f // защитное условие
+          rollbackNeeded = true
+          return { ...f, seats_available: f.seats_available - quantity }
+        }
+        return f
+      }))
       const res = await api.post('/tickets', { flight_id: flightId, quantity })
       if (res.data.confirmation_ids) {
         setToast(`Purchased ${res.data.quantity} ticket(s)`) }
       else { setToast('Ticket purchased') }
-      // refresh list
-      await load()
+      // Опционально можно обновить цену/другие поля — лёгкий refresh (оставим лениво)
       setQuantities(q => ({ ...q, [flightId]: 1 }))
     } catch(e:any){
+      // Rollback если ошибка
+      const quantity = quantities[flightId] || 1
+      setFlights(fs => fs.map(f => f.id === flightId ? { ...f, seats_available: f.seats_available + quantity } : f))
       alert(extractErrorMessage(e?.response?.data) || 'Purchase failed')
     } finally { setBuying(b => ({ ...b, [flightId]: false })) }
   }

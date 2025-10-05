@@ -21,3 +21,11 @@ def create_access_token(subject: str | Any, roles: list[str], expires_delta: Opt
         to_encode["company_ids"] = company_ids
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
+
+
+def decode_access_token(token: str) -> dict[str, Any]:
+    """Декодирование access token без верификации ролей. Бросает исключение jwt.PyJWTError при невалидности.
+    Возвращает payload как dict.
+    """
+    payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+    return payload
