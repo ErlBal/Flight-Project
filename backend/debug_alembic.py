@@ -18,8 +18,10 @@ def main():
     cfg = Config(ini_path)
     print("[debug] Using alembic.ini:", ini_path)
     print("[debug] script_location:", cfg.get_main_option("script_location"))
-    db_url = cfg.get_main_option("sqlalchemy.url")
-    print("[debug] sqlalchemy.url:", db_url)
+    db_url = os.getenv("DATABASE_URL") or cfg.get_main_option("sqlalchemy.url")
+    print("[debug] effective sqlalchemy.url (env first):", db_url)
+    if not os.getenv("DATABASE_URL"):
+        print("[warn] DATABASE_URL env not set. Set it for Postgres-only setup.")
     try:
         print("[debug] upgrading to head...")
         command.upgrade(cfg, "head")

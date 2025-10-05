@@ -13,12 +13,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 ENV POETRY_VERSION=1.8.3
 RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}"
 
-# Copy pyproject and install
 COPY backend/pyproject.toml /app/
 RUN poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi
 
-# Copy app code
+# Copy app code and alembic migration files
 COPY backend/app /app/app
+COPY backend/alembic /app/alembic
+COPY backend/alembic.ini /app/alembic.ini
+COPY backend/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["/app/entrypoint.sh"]

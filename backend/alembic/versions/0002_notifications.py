@@ -20,7 +20,7 @@ def upgrade():
         sa.Column('type', sa.String(length=64), nullable=False),
         sa.Column('message', sa.String(length=1024), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
-        sa.Column('read', sa.Boolean(), nullable=False, server_default=sa.text('0')),
+    sa.Column('read', sa.Boolean(), nullable=False, server_default=sa.text('false')),
     )
     op.create_index('ix_notifications_user_email', 'notifications', ['user_email'])
 

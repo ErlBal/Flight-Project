@@ -48,36 +48,28 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
     if not flight:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Flight not found")
 
-    # Попытка атомарного списания мест (Postgres). Для SQLite fallback: просто проверка + обновление в объекте.
+    # Атомарное списание мест (Postgres only): используем UPDATE ... WHERE ... RETURNING
     dialect_name = db.bind.dialect.name if db.bind else ""
-    updated = 0
-    if dialect_name.startswith("postgres"):
-        # Используем SQL для атомарного условия
-        upd = db.execute(
-            text("""
-                UPDATE flights
-                SET seats_available = seats_available - :qty
-                WHERE id = :fid AND seats_available >= :qty
-                RETURNING seats_available
-            """),
-            {"qty": qty, "fid": flight_id},
-        )
-        row = upd.fetchone()
-        if row is not None:
-            updated = 1
-    else:
-        # Fallback (не атомарно для конкурентных запросов, но работает для dev SQLite)
-        if flight.seats_available >= qty:
-            flight.seats_available -= qty
-            updated = 1
+    upd = db.execute(
+        text(
+            """
+            UPDATE flights
+            SET seats_available = seats_available - :qty
+            WHERE id = :fid AND seats_available >= :qty
+            RETURNING seats_available
+            """
+        ),
+        {"qty": qty, "fid": flight_id},
+    )
+    row = upd.fetchone()
+    updated = 1 if row is not None else 0
 
     if not updated:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough seats available")
 
     # Нужны актуальные данные цены -> если мы делали raw UPDATE в Postgres, у нас объект flight в сессии может быть устаревшим
-    if dialect_name.startswith("postgres"):
-        db.refresh(flight)
+    db.refresh(flight)
 
     confirmations = []
     now = datetime.utcnow()

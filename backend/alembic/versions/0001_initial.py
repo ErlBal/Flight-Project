@@ -17,7 +17,7 @@ def upgrade():
     op.create_table('companies',
         sa.Column('id', sa.Integer(), primary_key=True),
         sa.Column('name', sa.String(length=255), nullable=False, unique=True),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1'))
+        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true'))
     )
     op.create_table('users',
         sa.Column('id', sa.Integer(), primary_key=True),
@@ -25,7 +25,7 @@ def upgrade():
         sa.Column('full_name', sa.String(length=255), nullable=False),
         sa.Column('hashed_password', sa.String(length=255), nullable=False),
         sa.Column('role', sa.String(length=32), nullable=False, server_default='user'),
-        sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')),
+    sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')),
         sa.UniqueConstraint('email'),
     )
     op.create_index('ix_users_email', 'users', ['email'])

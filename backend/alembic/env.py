@@ -27,8 +27,10 @@ if _ran:
     raise SystemExit(0)
 setattr(config, "_single_pass_done", True)
 
-# DATABASE_URL from env (alembic.ini placeholder replaced at runtime)
-DB_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+# DATABASE_URL must be provided (Postgres only). No SQLite fallback.
+DB_URL = os.getenv("DATABASE_URL")
+if not DB_URL:
+    raise SystemExit("DATABASE_URL env var is required for migrations (Postgres only setup)")
 
 
 def run_migrations_offline():
