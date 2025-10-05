@@ -8,6 +8,15 @@ type Ticket = {
   email: string
   purchased_at?: string
   price_paid?: number
+  flight?: {
+    id: number
+    airline: string
+    flight_number: string
+    origin: string
+    destination: string
+    departure: string
+    arrival: string
+  } | null
 }
 
 type Flight = {
@@ -182,6 +191,9 @@ export default function Dashboard() {
         ))}
       </ul>
       <hr />
+  {/* Upcoming Flights section */}
+  <UpcomingFlights tickets={tickets} />
+  <hr />
       {loading && <p>Loading...</p>}
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {!loading && !error && tickets.length === 0 && <p>No tickets yet.</p>}
@@ -202,6 +214,50 @@ export default function Dashboard() {
           <button style={{ marginLeft:10 }} onClick={() => setToast(null)}>x</button>
         </div>
       )}
+    </div>
+  )
+}
+
+function UpcomingFlights({ tickets }: { tickets: Ticket[] }) {
+  // Filter future flights with status paid/refunded (refunded может не лететь, но оставим для истории; можем ограничить только paid)
+  const now = Date.now()
+  const future = tickets.filter(t => (t.status === 'paid' || t.status === 'refunded') && t.flight?.departure)
+    .map(t => ({ t, depTs: Date.parse(t.flight!.departure) }))
+    .filter(x => x.depTs > now)
+    .sort((a,b)=> a.depTs - b.depTs)
+
+  if (future.length === 0) return <div style={{ margin:'12px 0' }}><h3>Upcoming Flights</h3><p style={{ fontSize:14, opacity:.8 }}>No upcoming flights.</p></div>
+
+  // Group by date (YYYY-MM-DD)
+  const groups: Record<string, typeof future> = {}
+  future.forEach(f => {
+    const d = new Date(f.depTs).toISOString().slice(0,10)
+    ;(groups[d] = groups[d] || []).push(f)
+  })
+  const order = Object.keys(groups).sort()
+
+  return (
+    <div style={{ margin:'12px 0' }}>
+      <h3>Upcoming Flights</h3>
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+        {order.map(day => (
+          <div key={day} style={{ border:'1px solid #ddd', borderRadius:6, padding:10 }}>
+            <div style={{ fontSize:13, fontWeight:600, marginBottom:6 }}>{day}</div>
+            <ul style={{ listStyle:'none', padding:0, margin:0, display:'flex', flexDirection:'column', gap:8 }}>
+              {groups[day].map(({ t, depTs }) => (
+                <li key={t.confirmation_id} style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                  <div style={{ fontSize:14 }}>
+                    <strong>{t.flight?.airline} {t.flight?.flight_number}</strong> {t.flight?.origin} → {t.flight?.destination}
+                  </div>
+                  <div style={{ fontSize:12, opacity:.75 }}>
+                    Dep: {new Date(depTs).toLocaleString()} | Status: {t.status} | Ticket: {t.confirmation_id}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
