@@ -138,6 +138,7 @@ def list_flights(
                 "seats_available": f.seats_available,
                 "stops": f.stops,
                 "company_name": company_map.get(f.company_id) if getattr(f, 'company_id', None) else None,
+                "duration_minutes": int((f.arrival - f.departure).total_seconds() // 60),
             } for f in items
         ], "total": total, "page": page, "page_size": page_size}
     total = q.count()
@@ -171,6 +172,7 @@ def list_flights(
             "seats_available": f.seats_available,
             "stops": f.stops,
             "company_name": company_map.get(f.company_id) if getattr(f, 'company_id', None) else None,
+            "duration_minutes": int((f.arrival - f.departure).total_seconds() // 60),
         } for f in items
     ], "total": total, "page": page, "page_size": page_size}
 

@@ -16,6 +16,7 @@ type CompanyFlight = {
   seats_available: number
   // Added by backend for admin context
   company_name?: string
+  revenue_est?: number
 }
 
 type Passenger = { confirmation_id: string; user_email: string; status: string }
@@ -371,11 +372,7 @@ export default function CompanyDashboard() {
             <div>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
             <div>
               Price: {f.price} | Seats: {f.seats_available}/{f.seats_total}
-              {(() => {
-                const sold = Math.max(0, f.seats_total - f.seats_available)
-                const rev = sold * f.price
-                return <span style={{ marginLeft:12, fontSize:12, background:'#f1f5f9', padding:'2px 6px', borderRadius:6 }}>Revenue est: <strong>{rev}</strong></span>
-              })()}
+              <span style={{ marginLeft:12, fontSize:12, background:'#f1f5f9', padding:'2px 6px', borderRadius:6 }}>Revenue est: <strong>{f.revenue_est ?? (Math.max(0, f.seats_total - f.seats_available) * f.price)}</strong></span>
             </div>
             <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
               <button onClick={() => togglePassengers(f.id)}>

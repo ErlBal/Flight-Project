@@ -16,6 +16,7 @@ type Flight = {
   price: number
   seats_available: number
   stops: number
+  duration_minutes?: number
 }
 
 export default function Landing() {
@@ -149,7 +150,14 @@ export default function Landing() {
                       <strong style={{ fontSize:13 }}>{f.airline} {f.flight_number}</strong>
                     </div>
                     <div style={routeLine}>{f.origin} → {f.destination}</div>
-                    <div style={timeLine}>Dep {new Date(f.departure).toLocaleString()} | Arr {new Date(f.arrival).toLocaleString()}</div>
+                      <div style={timeLine}>Dep {new Date(f.departure).toLocaleString()} | Arr {new Date(f.arrival).toLocaleString()}</div>
+                      <div style={metaLine}>{(() => {
+                        const stopsLabel = f.stops === 0 ? 'Direct' : `${f.stops} stop${f.stops>1?'s':''}`
+                        const mins = typeof f.duration_minutes === 'number' ? f.duration_minutes : Math.max(0, Math.round((new Date(f.arrival).getTime() - new Date(f.departure).getTime())/60000))
+                        const h = Math.floor(mins/60); const m = mins%60
+                        const durStr = h>0 ? `${h}h ${m}m` : `${m}m`
+                        return `${stopsLabel} • ${durStr}`
+                      })()}</div>
                     <div style={actionRow}>
                       <span style={priceTag}>${f.price}</span>
                       <span style={seatsTag}>Seats: {f.seats_available}</span>
@@ -294,6 +302,7 @@ const resultItem: React.CSSProperties = { border:'1px solid #e2e8f0', borderRadi
 const resultTopRow: React.CSSProperties = { display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }
 const routeLine: React.CSSProperties = { fontSize:12, marginTop:2 }
 const timeLine: React.CSSProperties = { fontSize:10, opacity:.7, marginTop:2 }
+const metaLine: React.CSSProperties = { fontSize:10, opacity:.75, marginTop:2 }
 const actionRow: React.CSSProperties = { display:'flex', gap:6, alignItems:'center', marginTop:6, flexWrap:'wrap' }
 const priceTag: React.CSSProperties = { fontWeight:600, fontSize:13 }
 const seatsTag: React.CSSProperties = { fontSize:11 }

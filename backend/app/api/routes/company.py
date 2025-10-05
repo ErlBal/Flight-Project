@@ -125,6 +125,8 @@ def list_company_flights(
             "seats_available": f.seats_available,
             "company_id": f.company_id,
             "company_name": company_map.get(f.company_id) if f.company_id else None,
+            # Добавляем серверную оценку выручки (продано * price)
+            "revenue_est": float(f.price) * max(0, (f.seats_total - f.seats_available)),
         })
     return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
 

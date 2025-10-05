@@ -13,6 +13,7 @@ type Flight = {
   price: number
   seats_available: number
   stops: number
+  duration_minutes?: number
 }
 
 export default function Search() {
@@ -26,6 +27,15 @@ export default function Search() {
   const [passengers, setPassengers] = useState<number | ''>(params.get('passengers') ? Number(params.get('passengers')) || 1 : 1)
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
+  const [airlines, setAirlines] = useState('') // comma separated
+  const [depTimeFrom, setDepTimeFrom] = useState('') // HH:MM
+  const [depTimeTo, setDepTimeTo] = useState('')
+  const [arrTimeFrom, setArrTimeFrom] = useState('')
+  const [arrTimeTo, setArrTimeTo] = useState('')
+  const [stopsMin, setStopsMin] = useState('')
+  const [stopsMax, setStopsMax] = useState('')
+  const [sortBy, setSortBy] = useState<'departure'|'price'|'stops'>(params.get('sort_by') as any || 'departure')
+  const [sortDir, setSortDir] = useState<'asc'|'desc'>(params.get('sort_dir') as any || 'asc')
   const [flights, setFlights] = useState<Flight[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -39,8 +49,17 @@ export default function Search() {
     if (destination) p.set('destination', destination)
     if (date) p.set('date', date)
     if (passengers) p.set('passengers', String(passengers))
+    if (airlines) p.set('airlines', airlines)
+    if (depTimeFrom) p.set('dep_time_from', depTimeFrom)
+    if (depTimeTo) p.set('dep_time_to', depTimeTo)
+    if (arrTimeFrom) p.set('arr_time_from', arrTimeFrom)
+    if (arrTimeTo) p.set('arr_time_to', arrTimeTo)
+    if (stopsMin) p.set('stops_min', stopsMin)
+    if (stopsMax) p.set('stops_max', stopsMax)
+    if (sortBy) p.set('sort_by', sortBy)
+    if (sortDir) p.set('sort_dir', sortDir)
     nav({ pathname: '/search', search: p.toString() }, { replace: true })
-  }, [origin, destination, date, passengers, nav])
+  }, [origin, destination, date, passengers, airlines, depTimeFrom, depTimeTo, arrTimeFrom, arrTimeTo, stopsMin, stopsMax, sortBy, sortDir, nav])
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -52,6 +71,15 @@ export default function Search() {
       if (passengers) query.passengers = passengers
       if (minPrice) query.min_price = Number(minPrice)
       if (maxPrice) query.max_price = Number(maxPrice)
+  if (airlines) query.airlines = airlines
+  if (depTimeFrom) query.dep_time_from = depTimeFrom
+  if (depTimeTo) query.dep_time_to = depTimeTo
+  if (arrTimeFrom) query.arr_time_from = arrTimeFrom
+  if (arrTimeTo) query.arr_time_to = arrTimeTo
+  if (stopsMin) query.stops_min = Number(stopsMin)
+  if (stopsMax) query.stops_max = Number(stopsMax)
+  if (sortBy) query.sort_by = sortBy
+  if (sortDir) query.sort_dir = sortDir
   // IMPORTANT: use trailing slash to hit actual list endpoint (non-slash alias only returns info message)
   const r = await api.get('/flights/', { params: query })
       setFlights(r.data.items || [])
@@ -81,7 +109,7 @@ export default function Search() {
   }
 
   const resetFilters = () => {
-    setOrigin(''); setDestination(''); setDate(''); setPassengers(1); setMinPrice(''); setMaxPrice(''); setFlights([]); nav('/search', { replace:true })
+    setOrigin(''); setDestination(''); setDate(''); setPassengers(1); setMinPrice(''); setMaxPrice(''); setAirlines(''); setDepTimeFrom(''); setDepTimeTo(''); setArrTimeFrom(''); setArrTimeTo(''); setStopsMin(''); setStopsMax(''); setSortBy('departure'); setSortDir('asc'); setFlights([]); nav('/search', { replace:true })
   }
 
   const buy = async (flightId: number) => {
@@ -141,6 +169,49 @@ export default function Search() {
           <label style={lbl}>Max Price</label>
           <input value={maxPrice} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxPrice(v) }} />
         </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Airlines (comma)</label>
+          <input value={airlines} onChange={e=>setAirlines(e.target.value)} placeholder='AA,BA' />
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Dep time from</label>
+          <input type='time' value={depTimeFrom} onChange={e=>setDepTimeFrom(e.target.value)} />
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Dep time to</label>
+          <input type='time' value={depTimeTo} onChange={e=>setDepTimeTo(e.target.value)} />
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Arr time from</label>
+          <input type='time' value={arrTimeFrom} onChange={e=>setArrTimeFrom(e.target.value)} />
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Arr time to</label>
+          <input type='time' value={arrTimeTo} onChange={e=>setArrTimeTo(e.target.value)} />
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Stops min</label>
+          <input value={stopsMin} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setStopsMin(v) }} placeholder='0' />
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Stops max</label>
+          <input value={stopsMax} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setStopsMax(v) }} placeholder='2' />
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Sort by</label>
+          <select value={sortBy} onChange={e=>setSortBy(e.target.value as any)} style={{ fontSize:12 }}>
+            <option value='departure'>Departure</option>
+            <option value='price'>Price</option>
+            <option value='stops'>Stops</option>
+          </select>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+          <label style={lbl}>Sort dir</label>
+          <select value={sortDir} onChange={e=>setSortDir(e.target.value as any)} style={{ fontSize:12 }}>
+            <option value='asc'>Asc</option>
+            <option value='desc'>Desc</option>
+          </select>
+        </div>
         <div style={{ display:'flex', gap:8, alignItems:'flex-end', flexWrap:'wrap' }}>
           <button type='submit' style={submitBtn} disabled={loading}>{loading?'Searching...':'Search'}</button>
           <button type='button' onClick={resetFilters} disabled={loading}>Reset</button>
@@ -154,7 +225,15 @@ export default function Search() {
           <li key={f.id} style={{ border:'1px solid #ddd', borderRadius:8, padding:12, marginBottom:10 }}>
             <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:6 }}>
               <div style={{ fontWeight:600 }}>{f.airline} {f.flight_number}</div>
-              <div style={{ fontSize:12, background:'#eef', padding:'2px 6px', borderRadius:4 }}>{/* Stops removed */}</div>
+              <div style={{ fontSize:12, background:'#eef', padding:'2px 6px', borderRadius:4 }}>
+                {(() => {
+                  const stopsLabel = f.stops === 0 ? 'Direct' : `${f.stops} stop${f.stops>1?'s':''}`
+                  const mins = typeof f.duration_minutes === 'number' ? f.duration_minutes : Math.max(0, Math.round((new Date(f.arrival).getTime() - new Date(f.departure).getTime())/60000))
+                  const h = Math.floor(mins/60); const m = mins%60
+                  const durStr = h>0 ? `${h}h ${m}m` : `${m}m`
+                  return `${stopsLabel} • ${durStr}`
+                })()}
+              </div>
             </div>
             <div style={{ fontSize:14, marginTop:4 }}>{f.origin} → {f.destination}</div>
             <div style={{ fontSize:12, opacity:.8 }}>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
