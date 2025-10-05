@@ -68,7 +68,11 @@ def create_company_flight(payload: dict, db: Session = Depends(get_db), identity
     if "admin" in roles:
         company_id = payload.get("company_id")
         if not company_id:
-            raise HTTPException(status_code=400, detail="company_id required for admin created flight")
+            # Автовыбор первой активной компании, если не указано явно
+            first_company = db.query(Company).filter(Company.is_active == True).first()
+            if not first_company:
+                raise HTTPException(status_code=400, detail="No active companies available. Provide company_id")
+            company_id = first_company.id
     else:
         company_ids = _get_manager_company_ids(db, email)
         if not company_ids:
@@ -167,8 +171,9 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
         raise HTTPException(status_code=404, detail="Flight not found")
     if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
+    # Админ может удалять любой рейс; менеджеру запрещено удалять прошедшие
     now = datetime.utcnow()
-    if f.departure <= now:
+    if "admin" not in roles and f.departure <= now:
         raise HTTPException(status_code=400, detail="Past flight cannot be deleted")
 
     # Найти все оплаченные билеты и сделать refund + уведомления
