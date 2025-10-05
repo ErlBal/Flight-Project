@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import api from '../lib/api'
 
 export interface Offer {
@@ -46,6 +46,10 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hovered, setHovered] = useState<number | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [columns, setColumns] = useState(0)
+  const [expanded, setExpanded] = useState(false)
+  const ROWS_INITIAL = 2
 
   const load = useCallback(() => {
     setLoading(true); setError(null)
@@ -71,19 +75,53 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
     }
   }
 
+  // Подсчёт примерного количества колонок для ограничения числа карточек при свернутом состоянии
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const compute = () => {
+      const w = el.clientWidth
+      // 170 (min) + 12 (gap) => условная ширина блока
+      const cols = Math.max(1, Math.floor((w + 12) / 182))
+      setColumns(cols)
+    }
+    compute()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(compute) : undefined
+    ro?.observe(el)
+    window.addEventListener('resize', compute)
+    return () => {
+      window.removeEventListener('resize', compute)
+      ro?.disconnect()
+    }
+  }, [offers.length])
+
+  const visibleCount = expanded
+    ? offers.length
+    : (columns > 0 ? Math.min(offers.length, columns * ROWS_INITIAL) : Math.min(offers.length, limit || offers.length))
+  const visibleOffers = offers.slice(0, visibleCount)
+  const hasMore = offers.length > visibleOffers.length
+
   if (loading) return <div>Загрузка предложений…</div>
   if (error) return <div>{error}</div>
   if (!offers.length) return <div>Нет активных предложений</div>
 
   return (
-    <div style={gridStyle}>
-      {offers.map(o => {
+    <div ref={containerRef} style={gridStyle}>
+      <style>{offerExtraStyles}</style>
+      {visibleOffers.map((o, idx) => {
         const tagColor = o.tag ? tagColors[o.tag] : undefined
         const interactive = o.mode === 'interactive'
         return (
           <div
             key={o.id}
-            style={{ ...cardStyle, cursor: interactive ? 'pointer' : 'default', position: 'relative' }}
+            style={{
+              ...cardStyle,
+              cursor: interactive ? 'pointer' : 'default',
+              position: 'relative',
+              transform: hovered === o.id ? 'translateY(-2px) scale(1.025)' : 'translateY(0) scale(1)',
+              boxShadow: hovered === o.id ? '0 6px 20px -6px rgba(0,0,0,0.18)' : cardStyle.boxShadow,
+              animationDelay: `${idx * 55}ms`
+            }}
             onClick={() => handleClick(o)}
             onMouseEnter={() => setHovered(o.id)}
             onMouseLeave={() => setHovered(h => h === o.id ? null : h)}
@@ -112,16 +150,23 @@ export const OffersGrid: React.FC<Props> = ({ limit = 6, onActivateOffer }) => {
           </div>
         )
       })}
+      {hasMore && (
+        <button onClick={() => setExpanded(v => !v)} style={showMoreButton}>
+          {expanded ? 'Скрыть' : 'Показать ещё'}
+        </button>
+      )}
     </div>
   )
 }
 
+// Сетка с ограничением максимальной ширины трека, чтобы карточки не растягивались чрезмерно при малом количестве.
 const gridStyle: React.CSSProperties = {
   display:'grid',
-  gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))',
+  gridTemplateColumns:'repeat(auto-fit, minmax(170px, 230px))',
   gap:12,
   marginTop:8,
-  alignItems:'start'
+  alignItems:'start',
+  justifyContent:'start'
 }
 
 const cardStyle: React.CSSProperties = {
@@ -136,7 +181,10 @@ const cardStyle: React.CSSProperties = {
   gap:4,
   lineHeight:1.25,
   width:'100%',
-  height:'auto'
+  height:'auto',
+  maxWidth:230,
+  transition:'transform .28s cubic-bezier(.4,.2,.2,1), box-shadow .32s ease',
+  animation:'offerFade .55s ease backwards'
 }
 
 const subtitleStyle: React.CSSProperties = {
@@ -184,5 +232,20 @@ const tooltipBox: React.CSSProperties = {
   borderRadius:6,
   boxShadow:'0 4px 12px rgba(0,0,0,0.25)'
 }
+
+const showMoreButton: React.CSSProperties = {
+  gridColumn:'1 / -1',
+  marginTop:4,
+  background:'#1d3557',
+  color:'#fff',
+  border:'none',
+  borderRadius:8,
+  padding:'8px 14px',
+  fontSize:13,
+  cursor:'pointer',
+  fontWeight:600
+}
+
+const offerExtraStyles = `@keyframes offerFade {0% {opacity:0; transform:translateY(10px) scale(.98);} 100% {opacity:1; transform:translateY(0) scale(1);} }`;
 
 export default OffersGrid
