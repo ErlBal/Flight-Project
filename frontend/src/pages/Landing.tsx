@@ -109,29 +109,28 @@ export default function Landing() {
   }, [sideBanners])
 
   return (
-    <div style={pageWrap}>
-      <header style={heroHeader}>
-        <div style={{ flex: 1 }}>
-          <h1 style={titleStyle}>FlightProject</h1>
-          <p style={subtitleStyle}>Search, compare and book flights quickly.</p>
-        </div>
-        {/* Старый BannerSlider удалён */}
-      </header>
-
-      <div style={sideLayout}>
-        <div style={sideCol}>
+    <div style={{ width:'100%', minHeight:'100vh', background:'#fcfdff' }}>
+      <style>{responsiveStyles}</style>
+      <div style={outerShell}>
+        <div className='lp-left-rail' style={leftRail}>
           {leftSet.map((b:any, idx:number) => {
             const active = idx === leftActive
             return (
-              <a key={b.id+':L'} href={b.link_url || '#'} style={{ ...sideBannerBoxBase, ...(active ? sideBannerBoxActiveExtra : {}) }} title={b.title}>
-                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
-                <div style={{ position:'absolute', left:6, top:6, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, padding:'2px 6px', borderRadius:12, letterSpacing:'.5px', textTransform:'uppercase' }}>{active ? 'Active' : ' '}</div>
+              <a key={b.id+':L'} href={b.link_url || '#'} style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
+                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={bannerImg} /> : b.title}
               </a>
             )
           })}
         </div>
 
-        <div>
+        <main className='lp-center-main' style={centerMain}>
+          <header style={heroHeader}>
+            <div style={{ flex: 1 }}>
+              <h1 style={titleStyle}>FlightProject</h1>
+              <p style={subtitleStyle}>Search, compare and book flights quickly.</p>
+            </div>
+          </header>
+
           <section>
             <h2 style={sectionTitle}>Quick search</h2>
             <QuickSearchForm onSearch={runSearch} />
@@ -176,7 +175,7 @@ export default function Landing() {
             </div>
           </section>
 
-          <section style={{ marginTop: 40 }}>
+          <section style={{ marginTop: 56 }}>
             <div style={sectionHeaderRow}>
               <h2 style={sectionTitle}>Предложения</h2>
               <a href='/?date=' style={smallLink}>Сбросить поиск</a>
@@ -189,15 +188,14 @@ export default function Landing() {
               }}
             />
           </section>
-        </div>
+        </main>
 
-        <div style={sideCol}>
+        <div className='lp-right-rail' style={rightRail}>
           {rightSet.map((b:any, idx:number) => {
             const active = idx === rightActive
             return (
-              <a key={b.id+':R'} href={b.link_url || '#'} style={{ ...sideBannerBoxBase, ...(active ? sideBannerBoxActiveExtra : {}) }} title={b.title}>
-                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : b.title}
-                <div style={{ position:'absolute', left:6, top:6, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, padding:'2px 6px', borderRadius:12, letterSpacing:'.5px', textTransform:'uppercase' }}>{active ? 'Active' : ' '}</div>
+              <a key={b.id+':R'} href={b.link_url || '#'} style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
+                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={bannerImg} /> : b.title}
               </a>
             )
           })}
@@ -214,11 +212,14 @@ export default function Landing() {
   )
 }
 
-const pageWrap: React.CSSProperties = {
-  maxWidth: 1100,
-  margin: '0 auto',
-  padding: '24px 24px 60px'
-}
+// Новый каркас
+const outerShell: React.CSSProperties = { display:'grid', gridTemplateColumns:'minmax(0,1fr) minmax(auto,1320px) minmax(0,1fr)', gap:0, width:'100%', margin:'0 auto', padding:'0 16px' }
+const centerMain: React.CSSProperties = { padding:'32px 40px 80px', position:'relative' }
+const leftRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-start', paddingTop:48 }
+const rightRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-end', paddingTop:48 }
+const railBanner: React.CSSProperties = { width:200, height:260, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:12, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', transition:'all .6s ease', opacity:.7 }
+const railBannerActive: React.CSSProperties = { opacity:1, transform:'translateY(-4px)', boxShadow:'0 6px 28px -4px rgba(0,0,0,0.18)', background:'#fff' }
+const bannerImg: React.CSSProperties = { width:'100%', height:'100%', objectFit:'cover' }
 
 const heroHeader: React.CSSProperties = {
   display: 'flex',
@@ -299,7 +300,5 @@ const seatsTag: React.CSSProperties = { fontSize:11 }
 const qtyInput: React.CSSProperties = { width:54, fontSize:12, padding:'3px 4px', border:'1px solid #cbd5e1', borderRadius:4 }
 const buyBtn: React.CSSProperties = { fontSize:12, background:'#1d3557', color:'#fff', border:'none', borderRadius:4, padding:'5px 10px', cursor:'pointer' }
 
-const sideLayout: React.CSSProperties = { display:'grid', gridTemplateColumns:'160px 1fr 160px', gap:24, alignItems:'start', marginTop:32 }
-const sideCol: React.CSSProperties = { display:'flex', flexDirection:'column', gap:12, position:'sticky', top:16, maxHeight:520, overflowY:'auto', paddingRight:4 }
-const sideBannerBoxBase: React.CSSProperties = { background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:8, height:140, overflow:'hidden', position:'relative', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', padding:8, fontSize:13, textAlign:'center', fontWeight:500, transition:'all .6s ease', opacity:.65, transform:'translateY(6px)' }
-const sideBannerBoxActiveExtra: React.CSSProperties = { opacity:1, transform:'translateY(0)', boxShadow:'0 4px 16px -4px rgba(0,0,0,0.18)', background:'#fff' }
+// Инлайновый <style> для адаптива
+const responsiveStyles = `@media (max-width:1400px){ .lp-left-rail, .lp-right-rail{display:none;} .lp-center-main{padding:32px 24px 72px;} } @media (max-width:900px){ .lp-center-main h1{font-size:38px;} }`;
