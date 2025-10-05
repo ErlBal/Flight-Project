@@ -57,6 +57,7 @@ def list_company_flights(db: Session = Depends(get_db), identity=Depends(get_cur
             "seats_total": f.seats_total,
             "seats_available": f.seats_available,
             "company_id": f.company_id,
+            "company_name": db.query(Company.name).filter(Company.id == f.company_id).scalar() if f.company_id else None,
         }
         for f in flights
     ]
@@ -66,13 +67,7 @@ def list_company_flights(db: Session = Depends(get_db), identity=Depends(get_cur
 def create_company_flight(payload: dict, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
     email, roles = identity
     if "admin" in roles:
-        company_id = payload.get("company_id")
-        if not company_id:
-            # Автовыбор первой активной компании, если не указано явно
-            first_company = db.query(Company).filter(Company.is_active == True).first()
-            if not first_company:
-                raise HTTPException(status_code=400, detail="No active companies available. Provide company_id")
-            company_id = first_company.id
+        raise HTTPException(status_code=403, detail="Admin cannot create flights via this endpoint")
     else:
         company_ids = _get_manager_company_ids(db, email)
         if not company_ids:

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { decodeToken } from '../lib/authClaims'
 import api, { extractErrorMessage } from '../lib/api'
 
 // Domain types
@@ -13,6 +14,8 @@ type CompanyFlight = {
   price: number
   seats_total: number
   seats_available: number
+  // Added by backend for admin context
+  company_name?: string
 }
 
 type Passenger = { confirmation_id: string; user_email: string; status: string }
@@ -70,6 +73,8 @@ export default function CompanyDashboard() {
   const [statsRange, setStatsRange] = useState<'all'|'today'|'week'|'month'>('all')
   const [loadingStats, setLoadingStats] = useState(false)
   const [companyNames, setCompanyNames] = useState<string[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [isManager, setIsManager] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -133,6 +138,13 @@ export default function CompanyDashboard() {
   useEffect(() => { load() }, [])
   useEffect(() => { loadStats() }, [statsRange])
   useEffect(() => { loadCompanyInfo() }, [])
+  useEffect(() => {
+    const raw = localStorage.getItem('auth_token')
+    const decoded = decodeToken(raw)
+    const roles: string[] = decoded?.roles || []
+    setIsAdmin(roles.includes('admin'))
+    setIsManager(roles.includes('company_manager'))
+  }, [])
 
   const loadCompanyInfo = async () => {
     try {
@@ -211,31 +223,41 @@ export default function CompanyDashboard() {
           </div>
         )}
       </div>
-  <h3>Add flight</h3>
-      <form onSubmit={submit} style={{ display:'grid', gap:8, maxWidth:600, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
-        {(['flight_number','origin','destination'] as const).map(field => (
-          <input
-            key={field}
-            placeholder={field}
-            value={form[field]}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, [field]: e.target.value }))}
-            required
-          />
-        ))}
-        <input type='datetime-local' value={form.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, departure: e.target.value }))} required />
-        <input type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
-        <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
-        <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
-        <input type='number' placeholder='stops' value={form.stops} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, stops: e.target.value }))} min={0} />
-  <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
-      </form>
+      {!isAdmin && (
+        <>
+          <h3>Add flight</h3>
+          <form onSubmit={submit} style={{ display:'grid', gap:8, maxWidth:600, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
+            {(['flight_number','origin','destination'] as const).map(field => (
+              <input
+                key={field}
+                placeholder={field}
+                value={form[field]}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, [field]: e.target.value }))}
+                required
+              />
+            ))}
+            <input type='datetime-local' value={form.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, departure: e.target.value }))} required />
+            <input type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
+            <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
+            <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
+            <input type='number' placeholder='stops' value={form.stops} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, stops: e.target.value }))} min={0} />
+            <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
+          </form>
+        </>
+      )}
   <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? `${companyNames[0]} flights` : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
   {loading && <p>Loading...</p>}
   {error && <p style={{ color:'red' }}>{error}</p>}
       <ul style={{ listStyle:'none', padding:0 }}>
         {flights.map((f: CompanyFlight) => (
           <li key={f.id} style={{ border:'1px solid #ddd', padding:10, marginBottom:8 }}>
-            <div><strong>{f.flight_number}</strong> {f.origin} → {f.destination}</div>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
+              <strong>{f.flight_number}</strong>
+              {isAdmin && f.company_name && (
+                <span style={{ background:'#eef', border:'1px solid #99c', padding:'2px 6px', borderRadius:12, fontSize:11 }}>{f.company_name}</span>
+              )}
+              <span>{f.origin} → {f.destination}</span>
+            </div>
             <div>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
             <div>Price: {f.price} | Seats: {f.seats_available}/{f.seats_total}</div>
             <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
