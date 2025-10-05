@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+import asyncio
+from app.services.reminder_scheduler import reminder_loop
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
@@ -48,3 +50,7 @@ def startup():
     # On startup only seed idempotent data (admin, manager, demo company) AFTER migrations applied.
     if settings.env.lower() in {"dev", "development"}:
         seed_demo_data()
+    try:
+        asyncio.create_task(reminder_loop())
+    except Exception:
+        pass

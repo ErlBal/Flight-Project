@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.ticket import Ticket
 from app.models.flight import Flight
 from app.models.notification import Notification
+from app.models.ticket_reminder import TicketReminder
 from datetime import timedelta
 from app.api.deps import get_current_identity
 from app.services.notification_ws import manager as ws_manager
@@ -135,6 +136,12 @@ def my_tickets(
         return {"items": [], "total": total, "page": page, "page_size": page_size, "pages": (total + page_size - 1)//page_size if total else 1}
     flight_ids = {t.flight_id for t in items_db}
     flights_map = {f.id: f for f in db.query(Flight).filter(Flight.id.in_(flight_ids)).all()}
+    # Load existing reminders for these tickets
+    ticket_ids = [t.id for t in items_db]
+    reminders_map: dict[int, list[TicketReminder]] = {}
+    if ticket_ids:
+        for r in db.query(TicketReminder).filter(TicketReminder.ticket_id.in_(ticket_ids)).all():
+            reminders_map.setdefault(r.ticket_id, []).append(r)
     resp_items = []
     for t in items_db:
         f = flights_map.get(t.flight_id)
@@ -150,6 +157,15 @@ def my_tickets(
                 "arrival": f.arrival.isoformat(),
                 "stops": f.stops,
             }
+        rems = []
+        for r in reminders_map.get(t.id, []):
+            rems.append({
+                "id": r.id,
+                "hours_before": r.hours_before,
+                "type": r.type,
+                "scheduled_at": r.scheduled_at.isoformat(),
+                "sent": r.sent,
+            })
         resp_items.append({
             "confirmation_id": t.confirmation_id,
             "status": t.status,
@@ -158,6 +174,7 @@ def my_tickets(
             "purchased_at": t.purchased_at.isoformat() if t.purchased_at else None,
             "price_paid": float(t.price_paid) if t.price_paid is not None else None,
             "flight": flight_data,
+            "reminders": rems,
         })
     return {
         "items": resp_items,
@@ -220,3 +237,46 @@ def cancel_ticket(confirmation_id: str, db: Session = Depends(get_db), identity=
     except RuntimeError:
         pass
     return {"status": t.status}
+
+class ReminderCreateBody(BaseModel):
+    hours_before: int = Field(..., ge=1, le=240, description="Hours before departure to notify (1-240)")
+
+@router.post("/{confirmation_id}/reminder", status_code=201)
+def set_custom_reminder(confirmation_id: str, body: ReminderCreateBody, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    email, _roles = identity
+    t = db.query(Ticket).filter(Ticket.confirmation_id == confirmation_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Not found")
+    if t.user_email.lower() != email.lower():
+        raise HTTPException(status_code=403, detail="Forbidden")
+    f = db.get(Flight, t.flight_id)
+    if not f:
+        raise HTTPException(status_code=400, detail="Flight missing")
+    # only allow future flights
+    if f.departure <= datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Flight already departed or in progress")
+    # Remove existing custom reminder
+    db.query(TicketReminder).filter(TicketReminder.ticket_id == t.id, TicketReminder.type == "custom").delete()
+    sched_at = f.departure - timedelta(hours=body.hours_before)
+    if sched_at <= datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Reminder time already passed")
+    r = TicketReminder(ticket_id=t.id, user_email=email.lower(), hours_before=body.hours_before, type="custom", scheduled_at=sched_at)
+    db.add(r)
+    db.commit(); db.refresh(r)
+    return {"id": r.id, "hours_before": r.hours_before, "scheduled_at": r.scheduled_at.isoformat(), "type": r.type}
+
+@router.delete("/{confirmation_id}/reminder/{reminder_id}")
+def delete_custom_reminder(confirmation_id: str, reminder_id: int, db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+    email, _roles = identity
+    t = db.query(Ticket).filter(Ticket.confirmation_id == confirmation_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Not found")
+    if t.user_email.lower() != email.lower():
+        raise HTTPException(status_code=403, detail="Forbidden")
+    r = db.query(TicketReminder).filter(TicketReminder.id == reminder_id, TicketReminder.ticket_id == t.id, TicketReminder.type == "custom").first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    db.delete(r)
+    db.commit()
+    return {"status": "deleted"}
+

@@ -19,6 +19,13 @@ interface TicketItem {
   purchased_at: string | null
   price_paid: number | null
   flight?: TicketFlightInfo | null
+  reminders?: {
+    id: number
+    hours_before: number
+    type: string
+    scheduled_at: string
+    sent: boolean
+  }[]
 }
 
 export default function MyTickets() {
@@ -33,6 +40,8 @@ export default function MyTickets() {
   const [statusFilter, setStatusFilter] = useState('')
   const [canceling, setCanceling] = useState<Record<string, boolean>>({})
   const [toast, setToast] = useState<string|null>(null)
+  const [remOps, setRemOps] = useState<Record<string, boolean>>({})
+  const [customHoursInput, setCustomHoursInput] = useState<Record<string,string>>({})
 
   const load = useCallback(async ()=>{
     setLoading(true); setError(null)
@@ -66,6 +75,35 @@ export default function MyTickets() {
       setCanceling(c => ({ ...c, [cid]: false }))
     }
   }
+
+  const saveCustomReminder = async (cid: string) => {
+    const hoursStr = customHoursInput[cid]
+    const hours = Number(hoursStr)
+    if (!hoursStr || Number.isNaN(hours) || hours < 1 || hours > 240) { alert('Hours 1-240'); return }
+    setRemOps(o=>({...o, [cid]: true}))
+    try {
+      await api.post(`/tickets/${cid}/reminder`, { hours_before: hours })
+      setToast(`Reminder set ${hours}h before`)
+      await load()
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Failed to set reminder')
+    } finally { setRemOps(o=>({...o, [cid]: false})) }
+  }
+
+  const deleteCustomReminder = async (cid: string, reminderId: number) => {
+    if(!confirm('Delete custom reminder?')) return
+    setRemOps(o=>({...o, [cid]: true}))
+    try {
+      await api.delete(`/tickets/${cid}/reminder/${reminderId}`)
+      setToast('Reminder deleted')
+      await load()
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Failed to delete reminder')
+    } finally { setRemOps(o=>({...o, [cid]: false})) }
+  }
+
+  const findCustom = (t:TicketItem) => t.reminders?.find(r=>r.type==='custom')
+  const standardRems = (t:TicketItem) => (t.reminders||[]).filter(r=>r.type==='standard').sort((a,b)=>a.hours_before-b.hours_before)
 
   return (
     <div style={{ maxWidth:1100, margin:'0 auto', padding:'20px 20px 60px' }}>
@@ -122,6 +160,61 @@ export default function MyTickets() {
             {t.status === 'paid' && (
               <div style={{ marginTop:8 }}>
                 <button disabled={canceling[t.confirmation_id]} onClick={()=>cancelTicket(t.confirmation_id)}>{canceling[t.confirmation_id]? '...':'Cancel'}</button>
+              </div>
+            )}
+            {/* Reminders UI */}
+            {t.status === 'paid' && (
+              <div style={{ marginTop:12, background:'#f8fafc', padding:10, border:'1px solid #e2e8f0', borderRadius:6 }}>
+                <div style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>Reminders</div>
+                <div style={{ fontSize:12, marginBottom:4 }}>
+                  Standard: {standardRems(t).length ? standardRems(t).map(r=> (
+                    <span key={r.id} style={{ display:'inline-block', background:r.sent?'#d1fae5':'#e0f2fe', border:'1px solid #94a3b8', padding:'2px 6px', borderRadius:12, marginRight:6, marginBottom:4 }} title={r.sent? 'Sent':'Scheduled'}>
+                      {r.hours_before}h{r.sent?' ✓':''}
+                    </span>
+                  )) : <span style={{ opacity:.6 }}>auto scheduling...</span>}
+                </div>
+                <div style={{ fontSize:12, marginTop:4 }}>
+                  Custom:
+                  {(() => {
+                    const c = findCustom(t)
+                    if (c) {
+                      return (
+                        <span style={{ marginLeft:8, display:'inline-flex', alignItems:'center', gap:6 }}>
+                          <span style={{ background:c.sent?'#d1fae5':'#fef9c3', border:'1px solid #facc15', padding:'2px 6px', borderRadius:12, fontSize:12 }} title={c.sent? 'Sent':'Scheduled'}>{c.hours_before}h{c.sent?' ✓':''}</span>
+                          {!c.sent && <>
+                            <input
+                              type='number'
+                              min={1}
+                              max={240}
+                              value={customHoursInput[t.confirmation_id] ?? String(c.hours_before)}
+                              onChange={e=>setCustomHoursInput(o=>({...o, [t.confirmation_id]: e.target.value}))}
+                              style={{ width:70, fontSize:12 }}
+                              disabled={remOps[t.confirmation_id]}
+                            />
+                            <button onClick={()=>saveCustomReminder(t.confirmation_id)} disabled={remOps[t.confirmation_id]}>Update</button>
+                          </>}
+                          <button onClick={()=>deleteCustomReminder(t.confirmation_id, c.id)} disabled={remOps[t.confirmation_id]}>Delete</button>
+                        </span>
+                      )
+                    }
+                    return (
+                      <span style={{ marginLeft:8, display:'inline-flex', alignItems:'center', gap:6 }}>
+                        <input
+                          type='number'
+                          min={1}
+                          max={240}
+                          value={customHoursInput[t.confirmation_id]||''}
+                          placeholder='Hours'
+                          onChange={e=>setCustomHoursInput(o=>({...o, [t.confirmation_id]: e.target.value}))}
+                          style={{ width:70, fontSize:12 }}
+                          disabled={remOps[t.confirmation_id]}
+                        />
+                        <button onClick={()=>saveCustomReminder(t.confirmation_id)} disabled={remOps[t.confirmation_id]}>Add</button>
+                      </span>
+                    )
+                  })()}
+                </div>
+                <div style={{ marginTop:6, fontSize:11, opacity:.6 }}>Standard reminders (24h & 2h) создаются автоматически. Custom — один на билет, можно обновить или удалить.</div>
               </div>
             )}
           </li>
