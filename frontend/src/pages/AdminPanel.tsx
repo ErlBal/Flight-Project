@@ -577,6 +577,13 @@ function OffersSection() {
   const openCreate = () => { setEditingId(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (o:Offer) => {
     setEditingId(o.id)
+    let _origin = ''
+    let _destination = ''
+    let _date = ''
+    if (o.mode === 'interactive' && o.flight_ref) {
+      const m = o.flight_ref.match(/^([A-Z]{3})(?:-([A-Z]{3})(?:@(\d{4}-\d{2}-\d{2}))?)?$/)
+      if (m) { _origin = m[1] || ''; _destination = m[2] || ''; _date = m[3] || '' }
+    }
     setForm({
       title: o.title||'',
       subtitle: o.subtitle||'',
@@ -586,7 +593,8 @@ function OffersSection() {
       position: o.position?.toString()||'',
       tag: o.tag||'',
       mode: o.mode || 'interactive',
-      description: o.description||''
+      description: o.description||'',
+      _origin, _destination, _date
     })
     setModalOpen(true)
   }

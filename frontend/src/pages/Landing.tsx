@@ -116,7 +116,7 @@ export default function Landing() {
           {leftSet.map((b:any, idx:number) => {
             const active = idx === leftActive
             return (
-              <a key={b.id+':L'} href={b.link_url || '#'} style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
+              <a key={b.id+':L'} href={b.link_url || '#'} className='rail-banner' style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
                 {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={bannerImg} /> : b.title}
               </a>
             )
@@ -194,7 +194,7 @@ export default function Landing() {
           {rightSet.map((b:any, idx:number) => {
             const active = idx === rightActive
             return (
-              <a key={b.id+':R'} href={b.link_url || '#'} style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
+              <a key={b.id+':R'} href={b.link_url || '#'} className='rail-banner' style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
                 {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={bannerImg} /> : b.title}
               </a>
             )
@@ -301,4 +301,7 @@ const qtyInput: React.CSSProperties = { width:54, fontSize:12, padding:'3px 4px'
 const buyBtn: React.CSSProperties = { fontSize:12, background:'#1d3557', color:'#fff', border:'none', borderRadius:4, padding:'5px 10px', cursor:'pointer' }
 
 // Инлайновый <style> для адаптива
-const responsiveStyles = `@media (max-width:1400px){ .lp-left-rail, .lp-right-rail{display:none;} .lp-center-main{padding:32px 24px 72px;} } @media (max-width:900px){ .lp-center-main h1{font-size:38px;} }`;
+const responsiveStyles = `@media (max-width:1400px){ .lp-left-rail, .lp-right-rail{display:none;} .lp-center-main{padding:32px 24px 72px;} } @media (max-width:900px){ .lp-center-main h1{font-size:38px;} }
+@keyframes railFadeIn{0%{opacity:0;transform:translateY(12px);}100%{opacity:1;transform:translateY(0);} }
+.rail-banner{animation:railFadeIn .6s ease;}
+`;
