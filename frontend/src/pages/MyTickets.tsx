@@ -153,7 +153,9 @@ export default function MyTickets() {
             {t.flight && (
               <div style={{ marginTop:6, fontSize:14 }}>
                 {t.flight.airline} {t.flight.flight_number} — {t.flight.origin} → {t.flight.destination}
-                <div style={{ fontSize:12, opacity:.75 }}>Dep: {new Date(t.flight.departure).toLocaleString()} | Arr: {new Date(t.flight.arrival).toLocaleString()} | Stops: {t.flight.stops}</div>
+                <div style={{ fontSize:12, opacity:.75 }}>
+                  Dep: {new Date(t.flight.departure).toLocaleString()} | In: {formatRemain(Date.parse(t.flight.departure) - Date.now())} | Arr: {new Date(t.flight.arrival).toLocaleString()} | Stops: {t.flight.stops}
+                </div>
               </div>
             )}
             <div style={{ marginTop:6, fontSize:12, opacity:.7 }}>Purchased: {t.purchased_at? new Date(t.purchased_at).toLocaleString(): '—'} | Paid: {t.price_paid!=null? `$${t.price_paid}`:'—'}</div>
@@ -231,3 +233,16 @@ export default function MyTickets() {
 }
 
 const lbl: React.CSSProperties = { fontSize:11, textTransform:'uppercase', letterSpacing:'.5px', fontWeight:600 }
+
+function formatRemain(ms: number): string {
+  if (ms <= 0) return 'departed'
+  const totalMin = Math.floor(ms/60000)
+  const d = Math.floor(totalMin / (60*24))
+  const h = Math.floor((totalMin % (60*24))/60)
+  const m = totalMin % 60
+  const parts: string[] = []
+  if (d) parts.push(d+'d')
+  if (h) parts.push(h+'h')
+  if (m && d === 0) parts.push(m+'m')
+  return parts.length? 'in '+parts.join(' ') : '<1m'
+}
