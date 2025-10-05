@@ -17,57 +17,43 @@ router = APIRouter()
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    email = form_data.username.lower()
+    """Классический логин: пользователь уже должен существовать. Без автосоздания.
+    Возвращает 401 если:
+      - пользователь не найден
+      - пароль неверен
+    Возвращает 403 если пользователь заблокирован.
+    """
+    email = form_data.username.lower().strip()
     user = db.query(User).filter(User.email == email).first()
-    if user:
-        if not user.is_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is blocked")
-        if not verify_password(form_data.password, user.hashed_password):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")
-        role = user.role
-    else:
-        # Auto-provision user on first login based on role-by-email lists
-        role = "user"
-        if email in [e.lower() for e in settings.admin_emails]:
-            role = "admin"
-        elif email in [e.lower() for e in settings.manager_emails]:
-            role = "company_manager"
-        user = User(email=email, full_name=email.split("@")[0], hashed_password=get_password_hash(form_data.password), role=role, is_active=True)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is blocked")
+    if not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")
     company_ids: list[int] = []
     if user.role == "company_manager":
         links = db.query(CompanyManager).filter(CompanyManager.user_id == user.id).all()
         company_ids = [l.company_id for l in links]
-    access_token = create_access_token(subject=email, roles=[role], company_ids=company_ids)
+    access_token = create_access_token(subject=email, roles=[user.role], company_ids=company_ids)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/login-json", response_model=Token)
 def login_json(payload: UserLogin, db: Session = Depends(get_db)):
-    email = payload.email.lower()
+    """JSON логин без автосоздания. Поведение идентично /login."""
+    email = payload.email.lower().strip()
     user = db.query(User).filter(User.email == email).first()
-    if user:
-        if not user.is_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is blocked")
-        if not verify_password(payload.password, user.hashed_password):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")
-        role = user.role
-    else:
-        role = "user"
-        if email in [e.lower() for e in settings.admin_emails]:
-            role = "admin"
-        elif email in [e.lower() for e in settings.manager_emails]:
-            role = "company_manager"
-        user = User(email=email, full_name=email.split("@")[0], hashed_password=get_password_hash(payload.password), role=role, is_active=True)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is blocked")
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials")
     company_ids: list[int] = []
     if user.role == "company_manager":
         links = db.query(CompanyManager).filter(CompanyManager.user_id == user.id).all()
         company_ids = [l.company_id for l in links]
-    access_token = create_access_token(subject=email, roles=[role], company_ids=company_ids)
+    access_token = create_access_token(subject=email, roles=[user.role], company_ids=company_ids)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=UserOut)

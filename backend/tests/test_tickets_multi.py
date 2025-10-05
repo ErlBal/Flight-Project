@@ -2,12 +2,22 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.db.session import SessionLocal
 from app.models.flight import Flight
+from app.models.user import User
+from app.core.security import get_password_hash
 
 client = TestClient(app)
 
-# Helper to login (auto-provision user)
+def ensure_user(email: str, password: str = "testpass"):
+    db = SessionLocal()
+    u = db.query(User).filter(User.email == email).first()
+    if not u:
+        u = User(email=email, full_name=email.split("@")[0], hashed_password=get_password_hash(password), role="user", is_active=True)
+        db.add(u)
+        db.commit()
+    db.close()
 
 def login(email: str = "user1@example.com"):
+    ensure_user(email)
     r = client.post("/auth/login-json", json={"email": email, "password": "testpass"})
     assert r.status_code == 200, r.text
     return r.json()["access_token"]
