@@ -148,7 +148,6 @@ export default function Landing() {
                   <li key={f.id} style={resultItem}>
                     <div style={resultTopRow}>
                       <strong style={{ fontSize:13 }}>{f.airline} {f.flight_number}</strong>
-                      <span style={stopsBadge}>{f.stops} stops</span>
                     </div>
                     <div style={routeLine}>{f.origin} → {f.destination}</div>
                     <div style={timeLine}>Dep {new Date(f.departure).toLocaleString()} | Arr {new Date(f.arrival).toLocaleString()}</div>
@@ -292,7 +291,6 @@ const emptyBox: React.CSSProperties = { fontSize:12, opacity:.6, padding:'2px 4p
 const resultsList: React.CSSProperties = { listStyle:'none', padding:0, margin:'8px 0 0', overflowY:'auto', display:'flex', flexDirection:'column', gap:8 }
 const resultItem: React.CSSProperties = { border:'1px solid #e2e8f0', borderRadius:6, padding:8, background:'#f8fafc' }
 const resultTopRow: React.CSSProperties = { display:'flex', justifyContent:'space-between', alignItems:'center', gap:8 }
-const stopsBadge: React.CSSProperties = { fontSize:10, background:'#e0f2fe', color:'#0369a1', padding:'2px 6px', borderRadius:4, textTransform:'uppercase', letterSpacing:'.5px', fontWeight:600 }
 const routeLine: React.CSSProperties = { fontSize:12, marginTop:2 }
 const timeLine: React.CSSProperties = { fontSize:10, opacity:.7, marginTop:2 }
 const actionRow: React.CSSProperties = { display:'flex', gap:6, alignItems:'center', marginTop:6, flexWrap:'wrap' }

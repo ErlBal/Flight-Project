@@ -31,7 +31,6 @@ type FlightCreateForm = {
   price: number | string
   seats_total: number | string
   seats_available: number | string
-  stops?: number | string
 }
 
 type FlightEditForm = {
@@ -43,7 +42,6 @@ type FlightEditForm = {
   arrival: string   // local datetime
   price: number | string
   seats_total: number | string
-  stops?: number | string
 }
 
 export default function CompanyDashboard() {
@@ -61,7 +59,6 @@ export default function CompanyDashboard() {
     price: 0,
     seats_total: 0,
     seats_available: 0,
-    stops: 0,
   })
   const [passengers, setPassengers] = useState<Record<number, Passenger[]>>({})
   const [loadingPassengers, setLoadingPassengers] = useState<Record<number, boolean>>({})
@@ -108,9 +105,8 @@ export default function CompanyDashboard() {
         price: Number(form.price),
         seats_total: Number(form.seats_total),
         seats_available: Number(form.seats_available),
-        stops: Number(form.stops) || 0,
       })
-      setForm({ airline: 'DemoAir', flight_number: '', origin: '', destination: '', departure: '', arrival: '', price: 0, seats_total: 0, seats_available: 0, stops: 0 })
+      setForm({ airline: 'DemoAir', flight_number: '', origin: '', destination: '', departure: '', arrival: '', price: 0, seats_total: 0, seats_available: 0 })
       await load()
     } catch (e: any) {
   alert(extractErrorMessage(e?.response?.data) || 'Create failed')
@@ -175,7 +171,6 @@ export default function CompanyDashboard() {
       arrival: f.arrival.slice(0,16),
       price: f.price,
       seats_total: f.seats_total,
-      stops: (f as any).stops ?? 0,
     })
   }
 
@@ -191,7 +186,6 @@ export default function CompanyDashboard() {
         seats_total: Number(editForm.seats_total),
         departure: editForm.departure,
         arrival: editForm.arrival,
-        stops: Number(editForm.stops) || 0,
       })
       cancelEdit(); await load(); await loadStats();
     } catch(e:any){
@@ -250,7 +244,6 @@ export default function CompanyDashboard() {
             <input type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
             <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
             <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
-            <input type='number' placeholder='stops' value={form.stops} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, stops: e.target.value }))} min={0} />
             <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
           </form>
         </>
@@ -295,7 +288,6 @@ export default function CompanyDashboard() {
                 <input type='datetime-local' value={editForm.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, arrival:e.target.value}))} required />
                 <input type='number' value={editForm.price} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, price:e.target.value}))} required />
                 <input type='number' value={editForm.seats_total} min={1} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_total:e.target.value}))} required />
-                <input type='number' value={editForm.stops} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, stops:e.target.value}))} />
                 <div style={{ display:'flex', gap:8 }}>
                   <button type='submit' disabled={savingEdit}>{savingEdit?'...':'Save'}</button>
                   <button type='button' onClick={cancelEdit}>Cancel</button>

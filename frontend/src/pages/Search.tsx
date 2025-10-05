@@ -26,7 +26,6 @@ export default function Search() {
   const [passengers, setPassengers] = useState<number | ''>(params.get('passengers') ? Number(params.get('passengers')) || 1 : 1)
   const [minPrice, setMinPrice] = useState('')
   const [maxPrice, setMaxPrice] = useState('')
-  const [stopsMax, setStopsMax] = useState('')
   const [flights, setFlights] = useState<Flight[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -53,14 +52,13 @@ export default function Search() {
       if (passengers) query.passengers = passengers
       if (minPrice) query.min_price = Number(minPrice)
       if (maxPrice) query.max_price = Number(maxPrice)
-      if (stopsMax) query.max_stops = Number(stopsMax)
   // IMPORTANT: use trailing slash to hit actual list endpoint (non-slash alias only returns info message)
   const r = await api.get('/flights/', { params: query })
       setFlights(r.data.items || [])
     } catch(e:any){
       setError(extractErrorMessage(e?.response?.data) || 'Search failed')
     } finally { setLoading(false) }
-  }, [origin, destination, date, passengers, minPrice, maxPrice, stopsMax])
+  }, [origin, destination, date, passengers, minPrice, maxPrice])
 
   useEffect(() => { // auto search when arriving with params
     if (origin || destination || date || passengers) load()
@@ -83,7 +81,7 @@ export default function Search() {
   }
 
   const resetFilters = () => {
-    setOrigin(''); setDestination(''); setDate(''); setPassengers(1); setMinPrice(''); setMaxPrice(''); setStopsMax(''); setFlights([]); nav('/search', { replace:true })
+    setOrigin(''); setDestination(''); setDate(''); setPassengers(1); setMinPrice(''); setMaxPrice(''); setFlights([]); nav('/search', { replace:true })
   }
 
   const buy = async (flightId: number) => {
@@ -143,10 +141,6 @@ export default function Search() {
           <label style={lbl}>Max Price</label>
           <input value={maxPrice} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxPrice(v) }} />
         </div>
-        <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-          <label style={lbl}>Max Stops</label>
-          <input value={stopsMax} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setStopsMax(v) }} />
-        </div>
         <div style={{ display:'flex', gap:8, alignItems:'flex-end', flexWrap:'wrap' }}>
           <button type='submit' style={submitBtn} disabled={loading}>{loading?'Searching...':'Search'}</button>
           <button type='button' onClick={resetFilters} disabled={loading}>Reset</button>
@@ -160,7 +154,7 @@ export default function Search() {
           <li key={f.id} style={{ border:'1px solid #ddd', borderRadius:8, padding:12, marginBottom:10 }}>
             <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'space-between', gap:6 }}>
               <div style={{ fontWeight:600 }}>{f.airline} {f.flight_number}</div>
-              <div style={{ fontSize:12, background:'#eef', padding:'2px 6px', borderRadius:4 }}>Stops: {f.stops}</div>
+              <div style={{ fontSize:12, background:'#eef', padding:'2px 6px', borderRadius:4 }}>{/* Stops removed */}</div>
             </div>
             <div style={{ fontSize:14, marginTop:4 }}>{f.origin} → {f.destination}</div>
             <div style={{ fontSize:12, opacity:.8 }}>Dep: {new Date(f.departure).toLocaleString()} | Arr: {new Date(f.arrival).toLocaleString()}</div>
