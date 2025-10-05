@@ -18,3 +18,5 @@ class Flight(Base):
     seats_total: Mapped[int] = mapped_column(Integer)
     seats_available: Mapped[int] = mapped_column(Integer)
     company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"), nullable=True)
+    # Количество пересадок (0 = прямой). Используется для фильтрации.
+    stops: Mapped[int] = mapped_column(Integer, default=0)
