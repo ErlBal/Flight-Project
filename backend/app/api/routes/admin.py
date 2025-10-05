@@ -15,22 +15,46 @@ from app.models.company_manager import CompanyManager
 router = APIRouter(dependencies=[Depends(require_roles("admin"))])
 
 
-@router.get("/users", response_model=List[dict])
-def list_users(company_id: int | None = None, db: Session = Depends(get_db)):
-    """List users with company mapping for company managers.
+@router.get("/users", response_model=dict)
+def list_users(
+    company_id: int | None = None,
+    page: int = 1,
+    page_size: int = 25,
+    search: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Постраничный список пользователей.
 
-    Adds fields:
-      companies: list of company ids (if manager)
-      company_names: list of company names (resolved)
+    Возвращает:
+      items: текущая страница пользователей (со списком компаний для менеджеров)
+      total: общее количество пользователей под выбранным фильтром
+      page, page_size, pages
     """
+    page = max(page, 1)
+    page_size = max(1, min(page_size, 200))  # ограничим верхний предел
+
     q = db.query(User)
     if company_id is not None:
-        # Filter only users who are managers of provided company
+        # Фильтр: только менеджеры указанной компании (или все не-менеджеры чтобы список не терял остальных?)
+        # Логика прежняя: оставляем пользователей которые либо не менеджеры, либо менеджеры этой компании.
         q = q.join(CompanyManager, isouter=True).filter(
             (User.role != "company_manager") | (CompanyManager.company_id == company_id)
         )
-    users = q.all()
-    # Preload manager links & companies to avoid N+1
+    if search:
+        s = f"%{search.strip()}%"
+        # ILIKE для PostgreSQL (если БД другая — fallback на lower())
+        try:
+            q = q.filter((User.email.ilike(s)) | (User.full_name.ilike(s)))
+        except AttributeError:
+            # На случай SQLite: emulation
+            q = q.filter((func.lower(User.email).like(s.lower())) | (func.lower(User.full_name).like(s.lower())))
+    q = q.order_by(User.id.asc())
+
+    total = q.count()
+    offset = (page - 1) * page_size
+    users = q.offset(offset).limit(page_size).all()
+
+    # Preload only для менеджеров на текущей странице
     manager_user_ids = [u.id for u in users if u.role == "company_manager"]
     links = []
     if manager_user_ids:
@@ -43,7 +67,8 @@ def list_users(company_id: int | None = None, db: Session = Depends(get_db)):
     links_by_user: dict[int, list[CompanyManager]] = {}
     for l in links:
         links_by_user.setdefault(l.user_id, []).append(l)
-    resp = []
+
+    items = []
     for u in users:
         data = {"id": u.id, "email": u.email, "full_name": u.full_name, "role": u.role, "is_active": u.is_active}
         if u.role == "company_manager":
@@ -52,8 +77,10 @@ def list_users(company_id: int | None = None, db: Session = Depends(get_db)):
             cnames = [companies_map[cid].name for cid in cids if cid in companies_map]
             data["companies"] = cids
             data["company_names"] = cnames
-        resp.append(data)
-    return resp
+        items.append(data)
+
+    pages = (total + page_size - 1) // page_size if total else 1
+    return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
 
 
 @router.get("/companies", response_model=List[dict])

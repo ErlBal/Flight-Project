@@ -43,9 +43,16 @@ function UsersSection() {
   const [companiesLoading, setCompaniesLoading] = useState(false)
   const [selectedCompany, setSelectedCompany] = useState<string>('')
   const [unassigning, setUnassigning] = useState<Record<string, boolean>>({})
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
+  const [total, setTotal] = useState(0)
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  const [search, setSearch] = useState('')
+  const [pendingSearch, setPendingSearch] = useState('')
+  const [gotoPage, setGotoPage] = useState('')
 
   useEffect(() => { loadCompanies() }, [])
-  useEffect(() => { loadUsers() }, [refreshTick, selectedCompany])
+  useEffect(() => { loadUsers() }, [refreshTick, selectedCompany, page, pageSize, search])
 
   const loadCompanies = async () => {
     setCompaniesLoading(true)
@@ -60,10 +67,18 @@ function UsersSection() {
   const loadUsers = async () => {
     setLoading(true); setError(null)
     try {
-      const params: any = {}
-      if (selectedCompany) params.company_id = selectedCompany
+  const params: any = { page, page_size: pageSize }
+  if (selectedCompany) params.company_id = selectedCompany
+  if (search.trim()) params.search = search.trim()
       const r = await api.get('/admin/users', { params })
-      setUsers(r.data || [])
+      const data = r.data || {}
+      setUsers(data.items || [])
+      setTotal(data.total || 0)
+      // Если текущая страница вышла за границы после изменений - откат
+      const newPages = Math.max(1, Math.ceil((data.total || 0) / pageSize))
+      if (page > newPages) {
+        setPage(newPages)
+      }
     } catch(e:any){
       setError(extractErrorMessage(e?.response?.data) || 'Failed to load users')
     } finally { setLoading(false) }
@@ -117,7 +132,7 @@ function UsersSection() {
               onClick={() => unassign(cid, u.email)}
               disabled={unassigning[cid+':'+u.email]}
               style={{ padding:'2px 6px', fontSize:11, background:'#fee', border:'1px solid #f99', borderRadius:3, cursor:'pointer' }}
-            >{unassigning[cid+':'+u.email] ? '...' : 'x ' + (names[idx]?.slice(0,12)||'')}</button>
+            >{unassigning[cid+':'+u.email] ? '...' : 'Unassign'}</button>
           ))}
         </div>
       </div>
@@ -136,6 +151,23 @@ function UsersSection() {
           </select>
         </label>
         <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+        <label style={{ fontSize:13, display:'flex', alignItems:'center', gap:4 }}>
+          <span>Page size:</span>
+          <select value={pageSize} onChange={e=>{ setPageSize(Number(e.target.value)); setPage(1) }} disabled={loading}>
+            {[10,25,50,100].map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
+        <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+          <input
+            style={{ padding:'4px 6px' }}
+            placeholder='Search email or name'
+            value={pendingSearch}
+            onChange={e=>setPendingSearch(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter'){ setSearch(pendingSearch); setPage(1) } }}
+          />
+          <button type='button' disabled={loading && search!==pendingSearch} onClick={()=>{ setSearch(pendingSearch); setPage(1) }}>Search</button>
+          {search && <button type='button' onClick={()=>{ setPendingSearch(''); setSearch(''); setPage(1) }} style={{ padding:'4px 6px' }}>×</button>}
+        </div>
       </div>
       {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
@@ -174,6 +206,23 @@ function UsersSection() {
           </table>
         </div>
       )}
+      <div style={{ marginTop:12, display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+        <button disabled={loading || page<=1} onClick={()=> setPage(p=> Math.max(1,p-1))}>Prev</button>
+        <span style={{ fontSize:13 }}>Page {page} / {pages}</span>
+        <button disabled={loading || page>=pages} onClick={()=> setPage(p=> Math.min(pages,p+1))}>Next</button>
+        <span style={{ fontSize:12, opacity:.7 }}>Total: {total}</span>
+        <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+          <span style={{ fontSize:12 }}>Go to:</span>
+          <input
+            value={gotoPage}
+            onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setGotoPage(v) }}
+            onKeyDown={e=>{ if(e.key==='Enter'){ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n); } }}}
+            style={{ width:60, padding:'4px 6px' }}
+            placeholder='№'
+          />
+          <button type='button' onClick={()=>{ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n); } }} disabled={!gotoPage || Number(gotoPage)<1 || Number(gotoPage)>pages}>Go</button>
+        </div>
+      </div>
     </div>
   )
 }
