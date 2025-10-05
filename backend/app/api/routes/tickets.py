@@ -1,6 +1,6 @@
 from datetime import datetime
 import random, string
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -106,16 +106,37 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
     return result
 
 @router.get("/my")
-def my_tickets(db: Session = Depends(get_db), identity=Depends(get_current_identity)):
+def my_tickets(
+    db: Session = Depends(get_db),
+    identity=Depends(get_current_identity),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
+    confirmation_id: str | None = Query(None, description="Filter by confirmation id prefix or exact"),
+    status_filter: str | None = Query(None, pattern="^(paid|refunded|canceled)$"),
+):
     email, _roles = identity
-    # Prefetch flights to avoid N+1
-    tickets = db.query(Ticket).filter(Ticket.user_email == email).order_by(Ticket.purchased_at.desc()).all()
-    if not tickets:
-        return []
-    flight_ids = {t.flight_id for t in tickets}
+    q = db.query(Ticket).filter(Ticket.user_email == email)
+    if confirmation_id:
+        cid = confirmation_id.strip().upper()
+        if len(cid) < 3:
+            # небольшая защита от слишком короткого поиска (можно убрать)
+            pass
+        if '%' in cid or '_' in cid:
+            # избегаем wildcard injection — просто игнорируем такие символы
+            cid = cid.replace('%','').replace('_','')
+        q = q.filter(Ticket.confirmation_id.like(f"{cid}%"))
+    if status_filter:
+        q = q.filter(Ticket.status == status_filter)
+    total = q.count()
+    q = q.order_by(Ticket.purchased_at.desc())
+    offset = (page - 1) * page_size
+    items_db = q.offset(offset).limit(page_size).all()
+    if not items_db:
+        return {"items": [], "total": total, "page": page, "page_size": page_size, "pages": (total + page_size - 1)//page_size if total else 1}
+    flight_ids = {t.flight_id for t in items_db}
     flights_map = {f.id: f for f in db.query(Flight).filter(Flight.id.in_(flight_ids)).all()}
-    resp = []
-    for t in tickets:
+    resp_items = []
+    for t in items_db:
         f = flights_map.get(t.flight_id)
         flight_data = None
         if f:
@@ -127,8 +148,9 @@ def my_tickets(db: Session = Depends(get_db), identity=Depends(get_current_ident
                 "destination": f.destination,
                 "departure": f.departure.isoformat(),
                 "arrival": f.arrival.isoformat(),
+                "stops": f.stops,
             }
-        resp.append({
+        resp_items.append({
             "confirmation_id": t.confirmation_id,
             "status": t.status,
             "flight_id": t.flight_id,
@@ -137,7 +159,13 @@ def my_tickets(db: Session = Depends(get_db), identity=Depends(get_current_ident
             "price_paid": float(t.price_paid) if t.price_paid is not None else None,
             "flight": flight_data,
         })
-    return resp
+    return {
+        "items": resp_items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": (total + page_size - 1)//page_size if total else 1,
+    }
 
 @router.get("/{confirmation_id}")
 def get_ticket(confirmation_id: str, db: Session = Depends(get_db)):
