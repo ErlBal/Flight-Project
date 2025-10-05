@@ -75,6 +75,15 @@ export default function NotificationsBell({ onAnyAction }: Props) {
             return [payload.data, ...prev].slice(0, 200)
           })
           if (!payload.data.read) setUnreadCount(c => c + 1)
+        } else if (payload?.type === 'flight_seats' && payload.data) {
+          // Глобальное событие для других компонентов
+            window.dispatchEvent(new CustomEvent('flight_seats_update', { detail: payload.data }))
+        } else if (payload?.type === 'notification_read' && payload.data) {
+            setItems(prev => prev.map(i => i.id === payload.data.id ? { ...i, read: true } : i))
+            setUnreadCount(c => Math.max(0, c - 1))
+        } else if (payload?.type === 'notification_mark_all') {
+            setItems(prev => prev.map(i => ({ ...i, read: true })))
+            setUnreadCount(0)
         }
       } catch { /* ignore */ }
     }

@@ -67,6 +67,17 @@ export default function Search() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Реалтайм обновление мест
+  useEffect(() => {
+    const handler = (e: any) => {
+      const d = e.detail
+      if (!d || typeof d.flight_id !== 'number') return
+      setFlights(fs => fs.map(f => f.id === d.flight_id ? { ...f, seats_available: d.seats_available } : f))
+    }
+    window.addEventListener('flight_seats_update', handler as any)
+    return () => window.removeEventListener('flight_seats_update', handler as any)
+  }, [])
+
   const submit = async (e:React.FormEvent) => {
     e.preventDefault(); syncUrl(); await load()
   }

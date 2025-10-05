@@ -11,6 +11,8 @@ from app.models.flight import Flight
 from app.models.notification import Notification
 from datetime import timedelta
 from app.api.deps import get_current_identity
+from app.services.notification_ws import manager as ws_manager
+import asyncio
 
 router = APIRouter()
 
@@ -94,6 +96,13 @@ def create_ticket(payload: CreateTicketBody, db: Session = Depends(get_db), iden
     result = {"confirmation_ids": confirmation_ids, "quantity": qty}
     if qty == 1:
         result["confirmation_id"] = confirmation_ids[0]
+    # Push обновлённых seats
+    try:
+        asyncio.create_task(ws_manager.broadcast({
+            "type": "flight_seats", "data": {"flight_id": flight_id, "seats_available": flight.seats_available}
+        }))
+    except RuntimeError:
+        pass
     return result
 
 @router.get("/my")
@@ -175,4 +184,11 @@ def cancel_ticket(confirmation_id: str, db: Session = Depends(get_db), identity=
     # TODO: при наличии отдельного ws канала обновления рейсов можно пушить изменение seats_available
     t.status = "refunded"
     db.commit()
+    # broadcast seats update
+    try:
+        asyncio.create_task(ws_manager.broadcast({
+            "type": "flight_seats", "data": {"flight_id": f.id, "seats_available": f.seats_available}
+        }))
+    except RuntimeError:
+        pass
     return {"status": t.status}

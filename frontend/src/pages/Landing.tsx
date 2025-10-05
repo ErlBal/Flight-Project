@@ -52,15 +52,40 @@ export default function Landing() {
     setBuying(b => ({ ...b, [flightId]: true }))
     try {
       const quantity = quantities[flightId] || 1
+      // Оптимистичное уменьшение
+      let rollback = false
+      setFlights(fs => fs.map(f => {
+        if (f.id === flightId) {
+          if (f.seats_available >= quantity) {
+            rollback = true
+            return { ...f, seats_available: f.seats_available - quantity }
+          }
+        }
+        return f
+      }))
       const res = await api.post('/tickets', { flight_id: flightId, quantity })
       if (res.data.confirmation_ids) setToast(`Purchased ${res.data.quantity} ticket(s)`) 
       else setToast('Ticket purchased')
     } catch(e:any){
+      const quantity = quantities[flightId] || 1
+      // rollback
+      setFlights(fs => fs.map(f => f.id === flightId ? { ...f, seats_available: f.seats_available + quantity } : f))
       const msg = extractErrorMessage(e?.response?.data) || 'Purchase failed'
       if (/unauth/i.test(msg) || /auth/i.test(msg)) setAuthed(false)
       alert(msg)
     } finally { setBuying(b => ({ ...b, [flightId]: false })) }
   }
+
+  // Реалтайм слушатель seats
+  useEffect(() => {
+    const handler = (e: any) => {
+      const d = e.detail
+      if (!d || typeof d.flight_id !== 'number') return
+      setFlights(fs => fs.map(f => f.id === d.flight_id ? { ...f, seats_available: d.seats_available } : f))
+    }
+    window.addEventListener('flight_seats_update', handler as any)
+    return () => window.removeEventListener('flight_seats_update', handler as any)
+  }, [])
 
   return (
     <div style={pageWrap}>

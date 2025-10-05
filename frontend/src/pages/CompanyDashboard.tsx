@@ -145,6 +145,16 @@ export default function CompanyDashboard() {
     setIsAdmin(roles.includes('admin'))
     setIsManager(roles.includes('company_manager'))
   }, [])
+  // realtime seats
+  useEffect(() => {
+    const handler = (e: any) => {
+      const d = e.detail
+      if (!d || typeof d.flight_id !== 'number') return
+      setFlights(fs => fs.map(f => f.id === d.flight_id ? { ...f, seats_available: d.seats_available } : f))
+    }
+    window.addEventListener('flight_seats_update', handler as any)
+    return () => window.removeEventListener('flight_seats_update', handler as any)
+  }, [])
 
   const loadCompanyInfo = async () => {
     try {

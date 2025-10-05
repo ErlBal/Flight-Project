@@ -179,6 +179,15 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
                 # Если нет текущего loop (например в sync контексте Uvicorn workers) — игнор
                 pass
 
+    # Если seats_total изменилось — пуш обновлённые seats_available
+    if "seats_total" in changed_fields:
+        import asyncio
+        try:
+            asyncio.create_task(ws_manager.broadcast({
+                "type": "flight_seats", "data": {"flight_id": f.id, "seats_available": f.seats_available}
+            }))
+        except RuntimeError:
+            pass
     return {"status": "ok", "changed": list(changed_fields.keys())}
 
 

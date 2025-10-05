@@ -44,6 +44,13 @@ def mark_notification(notif_id: int, db: Session = Depends(get_db), identity=Dep
         raise HTTPException(status_code=404, detail="Not found")
     n.read = True
     db.commit()
+    # WS push
+    import asyncio
+    try:
+        from app.services.notification_ws import manager as ws_manager  # local import to avoid circular
+        asyncio.create_task(ws_manager.send_to_user(email.lower(), {"type": "notification_read", "data": {"id": n.id}}))
+    except RuntimeError:
+        pass
     return {"status": "ok"}
 
 
@@ -53,6 +60,12 @@ def mark_all_read(db: Session = Depends(get_db), identity=Depends(get_current_id
     email, _roles = identity
     db.query(Notification).filter(Notification.user_email == email.lower(), Notification.read == False).update({Notification.read: True})  # type: ignore
     db.commit()
+    import asyncio
+    try:
+        from app.services.notification_ws import manager as ws_manager
+        asyncio.create_task(ws_manager.send_to_user(email.lower(), {"type": "notification_mark_all", "data": {}}))
+    except RuntimeError:
+        pass
     return {"status": "ok"}
 
 
