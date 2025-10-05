@@ -183,7 +183,7 @@ function CompaniesSection() {
       </form>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
         <input style={{ minWidth:260 }} placeholder='Assign manager email' value={managerEmail} onChange={e => setManagerEmail(e.target.value)} />
-        <span style={{ fontSize:12, opacity:.7 }}>Введи email и нажми Assign у нужной компании</span>
+  <span style={{ fontSize:12, opacity:.7 }}>Enter email then press Assign on a company</span>
       </div>
       {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
@@ -314,7 +314,7 @@ function BannersSection() {
       const r = await api.get('/content/admin/banners')
       setBanners(r.data || [])
     } catch(e:any){
-      setError(extractErrorMessage(e?.response?.data) || 'Не удалось загрузить баннеры')
+  setError(extractErrorMessage(e?.response?.data) || 'Failed to load banners')
     } finally { setLoading(false) }
   }
 
@@ -339,7 +339,7 @@ function BannersSection() {
       }
       reset(); setRefreshTick(x=>x+1)
     } catch(e:any){
-      alert(extractErrorMessage(e?.response?.data) || 'Сохранение не удалось')
+  alert(extractErrorMessage(e?.response?.data) || 'Save failed')
     } finally { setSaving(false) }
   }
 
@@ -348,18 +348,18 @@ function BannersSection() {
   await api.put(`/content/admin/banners/${b.id}`, { is_active: !b.is_active })
       setRefreshTick(x=>x+1)
     } catch(e:any){
-      alert(extractErrorMessage(e?.response?.data) || 'Ошибка переключения')
+  alert(extractErrorMessage(e?.response?.data) || 'Toggle failed')
     }
   }
 
   const remove = async (b:Banner) => {
-    if(!confirm('Удалить баннер?')) return
+  if(!confirm('Delete banner?')) return
     setDeleting(d=>({ ...d, [b.id]: true }))
     try {
   await api.delete(`/content/admin/banners/${b.id}`)
       setRefreshTick(x=>x+1)
     } catch(e:any){
-      alert(extractErrorMessage(e?.response?.data) || 'Удаление не удалось')
+  alert(extractErrorMessage(e?.response?.data) || 'Delete failed')
     } finally { setDeleting(d=>({ ...d, [b.id]: false })) }
   }
 
@@ -376,7 +376,7 @@ function BannersSection() {
           <input placeholder='Title *' value={form.title} onChange={e=>setForm(f=>({ ...f, title:e.target.value }))} required />
           <input placeholder='Image URL' value={form.image_url} onChange={e=>setForm(f=>({ ...f, image_url:e.target.value }))} />
           <input placeholder='Link URL' value={form.link_url} onChange={e=>setForm(f=>({ ...f, link_url:e.target.value }))} />
-          <input placeholder='Position (число)' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, position:v })) }} />
+          <input placeholder='Position (number)' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, position:v })) }} />
           <label style={{ display:'flex', gap:6, fontSize:14 }}>
             <input type='checkbox' checked={form.is_active} onChange={e=>setForm(f=>({ ...f, is_active:e.target.checked }))} /> Active
           </label>
@@ -385,9 +385,9 @@ function BannersSection() {
           </div>
         </form>
       )}
-      {loading && <p>Загрузка...</p>}
+  {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
-      {!loading && !error && banners.length===0 && <p>Нет баннеров.</p>}
+  {!loading && !error && banners.length===0 && <p>No banners.</p>}
       {!loading && !error && banners.length>0 && (
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:14 }}>
@@ -447,7 +447,7 @@ function OffersSection() {
       const r = await api.get('/content/admin/offers')
       setOffers(r.data || [])
     } catch(e:any){
-      setError(extractErrorMessage(e?.response?.data) || 'Не удалось загрузить offers')
+  setError(extractErrorMessage(e?.response?.data) || 'Failed to load offers')
     } finally { setLoading(false) }
   }
   const startCreate = () => { setEditingId(null); setForm({ title:'', subtitle:'', price_from:'', flight_ref:'', is_active:true, position:'' }); setCreating(true) }
@@ -465,11 +465,11 @@ function OffersSection() {
       else await api.post('/content/admin/offers', payload)
       reset(); setRefreshTick(x=>x+1)
     } catch(e:any){
-      alert(extractErrorMessage(e?.response?.data) || 'Сохранение не удалось')
+  alert(extractErrorMessage(e?.response?.data) || 'Save failed')
     } finally { setSaving(false) }
   }
-  const toggleActive = async (o:Offer) => { try { await api.put(`/content/admin/offers/${o.id}`, { is_active: !o.is_active }); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Ошибка toggle') } }
-  const remove = async (o:Offer) => { if(!confirm('Удалить offer?')) return; setDeleting(d=>({ ...d, [o.id]: true })); try { await api.delete(`/content/admin/offers/${o.id}`); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Удаление не удалось') } finally { setDeleting(d=>({ ...d, [o.id]: false })) } }
+  const toggleActive = async (o:Offer) => { try { await api.put(`/content/admin/offers/${o.id}`, { is_active: !o.is_active }); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Toggle failed') } }
+  const remove = async (o:Offer) => { if(!confirm('Delete offer?')) return; setDeleting(d=>({ ...d, [o.id]: true })); try { await api.delete(`/content/admin/offers/${o.id}`); setRefreshTick(x=>x+1) } catch(e:any){ alert(extractErrorMessage(e?.response?.data)||'Delete failed') } finally { setDeleting(d=>({ ...d, [o.id]: false })) } }
   return (
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
       <h3 style={{ marginTop:0 }}>Offers</h3>
@@ -483,7 +483,7 @@ function OffersSection() {
           <input placeholder='Title *' value={form.title} onChange={e=>setForm(f=>({ ...f, title:e.target.value }))} required />
           <input placeholder='Subtitle' value={form.subtitle} onChange={e=>setForm(f=>({ ...f, subtitle:e.target.value }))} />
           <input placeholder='Price from' value={form.price_from} onChange={e=>{ const v=e.target.value; if(/^[0-9]*\.?[0-9]*$/.test(v)) setForm(f=>({ ...f, price_from:v })) }} />
-          <input placeholder='Flight ref (опц.)' value={form.flight_ref} onChange={e=>setForm(f=>({ ...f, flight_ref:e.target.value }))} />
+          <input placeholder='Flight ref (optional)' value={form.flight_ref} onChange={e=>setForm(f=>({ ...f, flight_ref:e.target.value }))} />
           <input placeholder='Position' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, position:v })) }} />
           <label style={{ display:'flex', gap:6, fontSize:14 }}>
             <input type='checkbox' checked={form.is_active} onChange={e=>setForm(f=>({ ...f, is_active:e.target.checked }))} /> Active
@@ -493,9 +493,9 @@ function OffersSection() {
           </div>
         </form>
       )}
-      {loading && <p>Загрузка...</p>}
+  {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
-      {!loading && !error && offers.length===0 && <p>Нет offers.</p>}
+  {!loading && !error && offers.length===0 && <p>No offers.</p>}
       {!loading && !error && offers.length>0 && (
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:14 }}>
