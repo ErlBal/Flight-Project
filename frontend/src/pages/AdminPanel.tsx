@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import api, { extractErrorMessage } from '../lib/api'
 
-type AdminUser = { id: number; email: string; full_name: string; role: string; is_active: boolean }
+type AdminUser = { id: number; email: string; full_name: string; role: string; is_active: boolean; companies?: number[]; company_names?: string[] }
 
 type Tab = 'users' | 'companies' | 'stats' | 'banners' | 'offers'
 
@@ -82,6 +82,7 @@ function UsersSection() {
                 <th style={th}>Email</th>
                 <th style={th}>Name</th>
                 <th style={th}>Role</th>
+                <th style={th}>Companies</th>
                 <th style={th}>Active</th>
                 <th style={th}>Actions</th>
               </tr>
@@ -92,6 +93,7 @@ function UsersSection() {
                   <td style={td}>{u.email}</td>
                   <td style={td}>{u.full_name}</td>
                   <td style={td}>{u.role}</td>
+                  <td style={td}>{u.role === 'company_manager' ? (u.company_names?.length ? u.company_names.join(', ') : '—') : '—'}</td>
                   <td style={td}>{u.is_active ? 'Yes' : 'No'}</td>
                   <td style={{ ...td }}>
                     <button

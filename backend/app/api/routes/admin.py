@@ -17,11 +17,37 @@ router = APIRouter(dependencies=[Depends(require_roles("admin"))])
 
 @router.get("/users", response_model=List[dict])
 def list_users(db: Session = Depends(get_db)):
+    """List users with company mapping for company managers.
+
+    Adds fields:
+      companies: list of company ids (if manager)
+      company_names: list of company names (resolved)
+    """
     users = db.query(User).all()
-    return [
-        {"id": u.id, "email": u.email, "full_name": u.full_name, "role": u.role, "is_active": u.is_active}
-        for u in users
-    ]
+    # Preload manager links & companies to avoid N+1
+    manager_user_ids = [u.id for u in users if u.role == "company_manager"]
+    links = []
+    if manager_user_ids:
+        links = db.query(CompanyManager).filter(CompanyManager.user_id.in_(manager_user_ids)).all()
+    company_ids = {l.company_id for l in links}
+    companies_map = {}
+    if company_ids:
+        comps = db.query(Company).filter(Company.id.in_(company_ids)).all()
+        companies_map = {c.id: c for c in comps}
+    links_by_user: dict[int, list[CompanyManager]] = {}
+    for l in links:
+        links_by_user.setdefault(l.user_id, []).append(l)
+    resp = []
+    for u in users:
+        data = {"id": u.id, "email": u.email, "full_name": u.full_name, "role": u.role, "is_active": u.is_active}
+        if u.role == "company_manager":
+            user_links = links_by_user.get(u.id, [])
+            cids = [l.company_id for l in user_links]
+            cnames = [companies_map[cid].name for cid in cids if cid in companies_map]
+            data["companies"] = cids
+            data["company_names"] = cnames
+        resp.append(data)
+    return resp
 
 
 @router.get("/companies", response_model=List[dict])
