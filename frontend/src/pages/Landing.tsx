@@ -112,7 +112,7 @@ export default function Landing() {
   }, [sideBanners])
 
   return (
-    <div style={{ width:'100%', minHeight:'100vh', background:'#fcfdff' }}>
+    <div style={{ width:'100%', minHeight:'100vh' }}>
       <style>{responsiveStyles}</style>
       <div style={outerShell}>
         <div className='lp-left-rail' style={leftRail}>
@@ -127,18 +127,21 @@ export default function Landing() {
         </div>
 
         <main className='lp-center-main' style={centerMain}>
-          <header style={heroHeader}>
-            <div style={{ flex: 1 }}>
-              <h1 className="landing-title">FlightProject</h1>
-              <p className="landing-subtitle">Search, compare and book flights quickly.</p>
+          <section style={{ marginTop:0 }}>
+            <div className='glass glass-pad anim-fade-up' style={{ marginBottom:32, display:'flex', flexDirection:'column', gap:28 }}>
+              <header style={heroHeader}>
+                <div style={{ flex:1 }}>
+                  <h1 className="landing-title text-contrast" style={{ marginTop:0 }}>FlightProject</h1>
+                  <p className="landing-subtitle text-contrast-soft" style={{ marginBottom:0 }}>Search, compare and book flights quickly.</p>
+                </div>
+              </header>
+              <div>
+                <h2 style={sectionTitle} className='text-contrast'>Quick search</h2>
+                <QuickSearchForm onSearch={runSearch} />
+              </div>
             </div>
-          </header>
-
-          <section>
-            <h2 style={sectionTitle}>Quick search</h2>
-            <QuickSearchForm onSearch={runSearch} />
             {searched && (
-            <div style={resultsWrapper}>
+            <div className='glass glass-pad anim-fade-up-delayed' style={{ marginTop:16, maxHeight:260, display:'flex', flexDirection:'column' }}>
               <div style={resultsHeaderRow}>
                 <span style={{ fontSize:13, fontWeight:600 }}>Results</span>
                 {loading && <span style={{ fontSize:11 }}>Loading…</span>}
@@ -189,17 +192,19 @@ export default function Landing() {
           </section>
 
           <section style={{ marginTop: 56 }}>
-            <div style={sectionHeaderRow}>
-              <h2 style={sectionTitle}>Предложения</h2>
-              <a href='/?date=' style={smallLink}>Сбросить поиск</a>
-            </div>
-            <OffersGrid
+            <div className='glass glass-pad anim-fade-up-long' style={{ marginBottom:24 }}>
+              <div style={sectionHeaderRow}>
+                <h2 style={sectionTitle} className='text-contrast'>Предложения</h2>
+                <a href='/?date=' style={smallLink}>Сбросить поиск</a>
+              </div>
+              <OffersGrid
               limit={6}
               onActivateOffer={(c)=>{
                 const evt = new CustomEvent('offer_prefill', { detail: { ...c, autoSubmit: true } })
                 window.dispatchEvent(evt)
               }}
-            />
+              />
+            </div>
           </section>
         </main>
 
@@ -275,17 +280,7 @@ const smallLink: React.CSSProperties = {
 }
 
 // Results styles
-const resultsWrapper: React.CSSProperties = {
-  marginTop:16,
-  background:'#fff',
-  border:'1px solid #e2e8f0',
-  borderRadius:8,
-  padding:12,
-  boxShadow:'0 1px 2px rgba(0,0,0,0.05)',
-  maxHeight:260,
-  display:'flex',
-  flexDirection:'column'
-}
+// resultsWrapper заменён на glass контейнер
 const resultsHeaderRow: React.CSSProperties = { display:'flex', gap:10, alignItems:'baseline' }
 const errorBox: React.CSSProperties = { color:'#b91c1c', fontSize:12, padding:'4px 6px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:4 }
 const emptyBox: React.CSSProperties = { fontSize:12, opacity:.6, padding:'2px 4px' }

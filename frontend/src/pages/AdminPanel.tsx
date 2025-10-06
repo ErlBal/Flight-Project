@@ -13,12 +13,9 @@ export default function AdminPanel() {
     <div className="page-pad" style={{ display:'flex', flexDirection:'column', gap:16 }}>
       <h2>Admin Panel</h2>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {(['users','companies','stats','banners','offers'] as Tab[]).map(t => {
-          const active = tab===t
-          return (
-            <button key={t} onClick={() => setTab(t)} className={active? 'btn btn-sm':'btn btn-outline btn-sm'}>{t}</button>
-          )
-        })}
+        {(['users','companies','stats','banners','offers'] as Tab[]).map(t => (
+            <button key={t} onClick={() => setTab(t)} className='btn btn-outline btn-sm'>{t}</button>
+        ))}
       </div>
       {tab === 'users' && <UsersSection />}
   {tab === 'companies' && <CompaniesSection />}

@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import React, { useMemo } from 'react'
+import React, { useMemo, useEffect } from 'react'
 import NotificationsBell from './components/NotificationsBell'
 
 function useAuthInfo() {
@@ -27,6 +27,14 @@ export default function App() {
   const isDashboard = loc.pathname.startsWith('/dashboard')
   const isCompany = loc.pathname.startsWith('/company')
   const isAdminPage = loc.pathname.startsWith('/admin')
+  // Управляем классом body для фонового изображения (кроме страниц логина)
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (!isAuth) document.body.classList.add('body-bg'); else document.body.classList.remove('body-bg')
+    }
+    return () => { if (typeof document !== 'undefined') document.body.classList.remove('body-bg') }
+  }, [isAuth])
+
   return (
   <div className={isLanding || isAuth || isDashboard || isCompany || isAdminPage ? undefined : 'app-shell'} style={{ lineHeight: 1.4 }}>
       <nav className="nav-root">

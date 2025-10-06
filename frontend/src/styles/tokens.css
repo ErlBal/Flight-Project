@@ -42,6 +42,8 @@
   --font-base: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
   --line-height-base: 1.45;
   --transition-fast: 140ms;
+  /* Background image path (can be overridden) */
+  --app-bg-image: url(/bg.png);
 }
 
 /* Buttons */
@@ -122,3 +124,26 @@
 .link-accent2 { color: var(--color-accent2); text-decoration:none; font-weight:500; }
 .link-accent2:hover { color: var(--color-accent2-hover); }
 .link-accent2:active { color: var(--color-accent2-active); }
+
+/* Panels (card-like background for sections over image) */
+.panel { background: var(--color-bg); border:1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+.panel-pad { padding:20px 24px; }
+
+/* Text contrast helpers over image backgrounds */
+.text-contrast { color:#111; text-shadow:0 1px 2px rgba(255,255,255,0.6); }
+.text-contrast-soft { color: var(--color-text-soft); text-shadow:0 1px 2px rgba(255,255,255,0.5); }
+
+/* Glass (frosted) background for readability */
+.glass { background:rgba(255,255,255,0.78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border:1px solid rgba(220,223,227,0.6); border-radius: var(--radius-md); }
+.glass-pad { padding:20px 26px; }
+
+/* Fade/slide in animation */
+@keyframes fadeInUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+.anim-fade-up { animation: fadeInUp .55s ease forwards; }
+.anim-fade-up-delayed { animation: fadeInUp .65s ease forwards; animation-delay:.12s; opacity:0; }
+.anim-fade-up-long { animation: fadeInUp .8s cubic-bezier(.16,.8,.24,1) forwards; }
+
+/* Global background image (applied via body.body-bg) */
+/* Поместите файл изображения в папку public (например: public/bg.jpg) */
+.body-bg { background: var(--color-bg) var(--app-bg-image) center center / cover fixed no-repeat; }
+@media (max-width: 800px){ .body-bg { background-attachment: scroll; } }

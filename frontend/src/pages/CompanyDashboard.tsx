@@ -270,17 +270,14 @@ export default function CompanyDashboard() {
   const filteredFlights = flights
 
   return (
-    <div className="page-pad">
+  <div className="page-pad">
       <h2>Company Dashboard</h2>
-      <div style={{ border:'1px solid #ddd', padding:12, borderRadius:6, marginBottom:20 }}>
+  <div className="panel panel-pad" style={{ marginBottom:20 }}>
         <h3 style={{ marginTop:0 }}>Statistics</h3>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
-          {(['all','today','week','month'] as const).map(r => {
-            const active = statsRange===r
-            return (
-              <button key={r} onClick={()=>setStatsRange(r)} className={active? 'btn btn-sm':'btn btn-outline btn-sm'}>{r}</button>
-            )
-          })}
+          {(['all','today','week','month'] as const).map(r => (
+              <button key={r} onClick={()=>setStatsRange(r)} className='btn btn-outline btn-sm'>{r}</button>
+          ))}
           <button onClick={loadStats} disabled={loadingStats} className='btn btn-outline btn-sm'>Reload</button>
         </div>
         {stats && (
@@ -299,7 +296,7 @@ export default function CompanyDashboard() {
       {!isAdmin && (
         <>
           <h3>Add flight</h3>
-          <form onSubmit={submit} style={{ display:'grid', gap:8, maxWidth:600, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
+          <form onSubmit={submit} className='panel panel-pad' style={{ display:'grid', gap:8, maxWidth:600, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
             {(['flight_number','origin','destination'] as const).map(field => (
               <input
                 key={field}
@@ -313,12 +310,12 @@ export default function CompanyDashboard() {
             <input type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
             <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
             <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
-            <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
+            <button type='submit' disabled={creating} className='btn btn-outline btn-sm'>{creating ? '...' : 'Create'}</button>
           </form>
         </>
       )}
       <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? <span style={{ fontWeight:700 }}>{companyNames[0]} flights</span> : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10, alignItems:'center' }}>
+  <div className='panel panel-pad' style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10, alignItems:'center' }}>
         {(['all','active','completed'] as const).map(filt => {
           const active = flightFilter===filt
           return (
@@ -367,7 +364,7 @@ export default function CompanyDashboard() {
   {error && <p style={{ color:'red' }}>{error}</p>}
       <ul style={{ listStyle:'none', padding:0 }}>
         {filteredFlights.map((f: CompanyFlight) => (
-          <li key={f.id} style={{ border:'1px solid #ddd', padding:10, marginBottom:8 }}>
+          <li key={f.id} className='panel panel-pad' style={{ padding:10, marginBottom:8 }}>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
               <strong>{f.flight_number}</strong>
               {isAdmin && f.company_name && (
@@ -381,7 +378,7 @@ export default function CompanyDashboard() {
               <span style={{ marginLeft:12, fontSize:12, background:'#f1f5f9', padding:'2px 6px', borderRadius:6 }}>Revenue est: <strong>{f.revenue_est ?? (Math.max(0, f.seats_total - f.seats_available) * f.price)}</strong></span>
             </div>
             <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
-              <button onClick={() => togglePassengers(f.id)} className='btn btn-sm'>
+              <button onClick={() => togglePassengers(f.id)} className='btn btn-outline btn-sm'>
                 {passengers[f.id] ? 'Hide passengers' : 'Passengers'}
               </button>
               <div style={{ display:'flex', gap:2 }}>
@@ -435,7 +432,7 @@ export default function CompanyDashboard() {
                 <input type='number' value={editForm.seats_total} min={1} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_total:e.target.value}))} required />
                 <input type='number' value={editForm.seats_available} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_available:e.target.value}))} required />
                 <div style={{ display:'flex', gap:8 }}>
-                  <button type='submit' disabled={savingEdit} className='btn btn-sm'>{savingEdit?'...':'Save'}</button>
+                  <button type='submit' disabled={savingEdit} className='btn btn-outline btn-sm'>{savingEdit?'...':'Save'}</button>
                   <button type='button' onClick={cancelEdit} className='btn btn-outline btn-sm'>Cancel</button>
                 </div>
               </form>

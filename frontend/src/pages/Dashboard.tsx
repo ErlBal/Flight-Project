@@ -181,7 +181,7 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
           </select>
         </div>
         <div style={{ display:'flex', alignItems:'flex-end', gap:8 }}>
-          <button className="btn btn-sm" disabled={loading} onClick={()=>reload()}>Apply</button>
+          <button className="btn btn-outline btn-sm" disabled={loading} onClick={()=>reload()}>Apply</button>
           <button className="btn btn-outline btn-sm" disabled={loading} onClick={()=>{ setFilterCid(''); setFilterStatus(''); setPage(1); reload() }}>Reset</button>
         </div>
         <div className={styles.pagingControls}>
@@ -288,7 +288,7 @@ function ReminderModal({ ticket, onClose, refresh, remOps, setRemOps, customInpu
               {!custom.sent && (
                 <>
                   <input type='number' min={1} max={240} value={customInput || String(custom.hours_before)} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall + ' input'} style={{ padding:'4px 6px' }} />
-                  <button disabled={remOps} onClick={updateExisting} className="btn btn-sm">Update</button>
+                  <button disabled={remOps} onClick={updateExisting} className="btn btn-outline btn-sm">Update</button>
                 </>
               )}
               <button disabled={remOps} onClick={deleteCustom} className="btn btn-outline btn-sm">Delete</button>
@@ -296,7 +296,7 @@ function ReminderModal({ ticket, onClose, refresh, remOps, setRemOps, customInpu
           ) : (
             <span className={styles.customInline}>
               <input type='number' min={1} max={240} value={customInput} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall + ' input'} style={{ padding:'4px 6px' }} />
-              <button disabled={remOps} onClick={setReminder} className="btn btn-sm">Add</button>
+              <button disabled={remOps} onClick={setReminder} className="btn btn-outline btn-sm">Add</button>
             </span>
           )}
         </div>
