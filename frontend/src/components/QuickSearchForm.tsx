@@ -52,33 +52,54 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
   }
 
   return (
-  <form onSubmit={handleSubmit} style={formStyle}>
-      <div style={fieldCol}> 
+    <form onSubmit={handleSubmit} style={formStyle} className="qs-search-grid">
+      <style>{quickSearchResponsiveCss}</style>
+      <div style={{ ...fieldCol }} className='qs-cell'> 
         <label style={labelStyle}>Origin</label>
-  <input value={origin} onChange={e => setOrigin(e.target.value)} placeholder="" className="input" style={inputOverride} />
+  <input
+    value={origin}
+    onChange={e => {
+      const v = e.target.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)
+      setOrigin(v)
+    }}
+    placeholder="AAA"
+    maxLength={3}
+    className="input"
+    style={{ ...inputOverride, textTransform:'uppercase' }}
+  />
       </div>
-      <div style={fieldCol}> 
+      <div style={{ ...fieldCol }} className='qs-cell'> 
         <label style={labelStyle}>Destination</label>
-  <input value={destination} onChange={e => setDestination(e.target.value)} placeholder="" className="input" style={inputOverride} />
+  <input
+    value={destination}
+    onChange={e => {
+      const v = e.target.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)
+      setDestination(v)
+    }}
+    placeholder="BBB"
+    maxLength={3}
+    className="input"
+    style={{ ...inputOverride, textTransform:'uppercase' }}
+  />
       </div>
-      <div style={fieldCol}> 
+      <div style={{ ...fieldCol }} className='qs-cell'> 
         <label style={labelStyle}>Date</label>
   <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" style={inputOverride} />
       </div>
-      <div style={fieldCol}> 
+      <div style={{ ...fieldCol }} className='qs-cell'> 
         <label style={labelStyle}>Passengers</label>
   <input type="number" min={1} value={passengers} onChange={e => setPassengers(Number(e.target.value)||1)} className="input" style={inputOverride} />
       </div>
-      <div style={fieldCol}>
+      <div style={{ ...fieldCol }} className='qs-cell'>
         <label style={labelStyle}>Min Price</label>
   <input value={minPrice} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMinPrice(v)}} className="input" style={inputOverride} />
       </div>
-      <div style={fieldCol}>
+      <div style={{ ...fieldCol }} className='qs-cell'>
         <label style={labelStyle}>Max Price</label>
   <input value={maxPrice} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxPrice(v)}} className="input" style={inputOverride} />
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-  <button type="submit" className="btn" style={submitBtnOverride}>Search</button>
+      <div className='qs-actions-row'>
+        <button type="submit" className="btn qs-search-btn">Search</button>
       </div>
     </form>
   )
@@ -86,13 +107,16 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
 
 const formStyle: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-  gap: 12,
+  gap: 14,
+  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+  alignItems: 'end',
   background: 'white',
-  padding: 16,
-  borderRadius: 8,
+  padding: '22px 24px 28px',
+  borderRadius: 12,
   border: '1px solid var(--color-border)',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
+  boxShadow: '0 4px 18px -4px rgba(0,0,0,0.12)',
+  maxWidth: 1080,
+  margin: '0 auto'
 }
 
 const fieldCol: React.CSSProperties = {
@@ -112,9 +136,15 @@ const inputOverride: React.CSSProperties = {
   fontSize:14
 }
 
-const submitBtnOverride: React.CSSProperties = {
-  fontSize:14,
-  alignSelf:'flex-end'
-}
+const submitBtnOverride: React.CSSProperties = { fontSize:14 }
+
+// CSS для адаптива: при ширине < 780px разрешаем перенос.
+const quickSearchResponsiveCss = `
+.qs-search-grid .qs-actions-row { grid-column: 1 / -1; display:flex; justify-content:center; margin-top:4px; }
+.qs-search-grid .qs-search-btn { padding:10px 26px; font-size:15px; font-weight:600; border-radius:24px; }
+.qs-search-grid .qs-cell input { width:100%; }
+@media (max-width:900px){ .qs-search-grid { grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); } }
+@media (max-width:640px){ .qs-search-grid { grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); padding:18px 18px 24px; } }
+`
 
 export default QuickSearchForm
