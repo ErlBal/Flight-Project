@@ -301,19 +301,37 @@ export default function CompanyDashboard() {
         <div className='glass glass-pad anim-fade-up' style={{ marginBottom:32 }}>
           <h3 style={{ marginTop:0, marginBottom:14 }}>Add flight</h3>
           <form onSubmit={submit} className='' style={{ display:'grid', gap:8, maxWidth:680, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
-            <input
-              placeholder='flight_number'
-              value={form.flight_number}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, flight_number: e.target.value }))}
-              required
-            />
+            <div style={{ display:'flex', flexDirection:'column' }}>
+              <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Flight #</label>
+              <input
+                className='input'
+                placeholder='Flight number'
+                value={form.flight_number}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, flight_number: e.target.value }))}
+                required
+              />
+            </div>
             <CountryInput label='origin' value={String(form.origin)} onChange={(v)=>setForm(o=>({ ...o, origin:v }))} />
             <CountryInput label='destination' value={String(form.destination)} onChange={(v)=>setForm(o=>({ ...o, destination:v }))} />
-            <input type='datetime-local' value={form.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, departure: e.target.value }))} required />
-            <input type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
-            <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
-            <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
-            <button type='submit' disabled={creating} className='btn btn-outline btn-sm'>{creating ? '...' : 'Create'}</button>
+            <div style={{ display:'flex', flexDirection:'column' }}>
+              <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Departure</label>
+              <input className='input' type='datetime-local' value={form.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, departure: e.target.value }))} required />
+            </div>
+            <div style={{ display:'flex', flexDirection:'column' }}>
+              <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Arrival</label>
+              <input className='input' type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
+            </div>
+            <div style={{ display:'flex', flexDirection:'column' }}>
+              <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Price</label>
+              <input className='input' type='number' placeholder='0' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
+            </div>
+            <div style={{ display:'flex', flexDirection:'column' }}>
+              <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Seats total</label>
+              <input className='input' type='number' placeholder='0' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
+              <button type='submit' disabled={creating} className='btn btn-outline btn-sm' style={{ marginTop:'auto' }}>{creating ? '...' : 'Create'}</button>
+            </div>
           </form>
         </div>
       )}
@@ -431,14 +449,32 @@ export default function CompanyDashboard() {
             {editingId===f.id && editForm && (
               <form onSubmit={saveEdit} style={{ marginTop:10, display:'grid', gap:6, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
                 <input value={editForm.airline} placeholder='airline' onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, airline:e.target.value}))} required />
-                <input value={editForm.flight_number} placeholder='flight_number' onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, flight_number:e.target.value}))} required />
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Flight #</label>
+                  <input className='input' value={editForm.flight_number} placeholder='Flight number' onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, flight_number:e.target.value}))} required />
+                </div>
                 <CountryInput label='origin' value={String(editForm.origin)} onChange={(v)=>setEditForm(o=>o && ({ ...o, origin:v }))} />
                 <CountryInput label='destination' value={String(editForm.destination)} onChange={(v)=>setEditForm(o=>o && ({ ...o, destination:v }))} />
-                <input type='datetime-local' value={editForm.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, departure:e.target.value}))} required />
-                <input type='datetime-local' value={editForm.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, arrival:e.target.value}))} required />
-                <input type='number' value={editForm.price} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, price:e.target.value}))} required />
-                <input type='number' value={editForm.seats_total} min={1} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_total:e.target.value}))} required />
-                <input type='number' value={editForm.seats_available} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_available:e.target.value}))} required />
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Departure</label>
+                  <input className='input' type='datetime-local' value={editForm.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, departure:e.target.value}))} required />
+                </div>
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Arrival</label>
+                  <input className='input' type='datetime-local' value={editForm.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, arrival:e.target.value}))} required />
+                </div>
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Price</label>
+                  <input className='input' type='number' value={editForm.price} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, price:e.target.value}))} required />
+                </div>
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Seats total</label>
+                  <input className='input' type='number' value={editForm.seats_total} min={1} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_total:e.target.value}))} required />
+                </div>
+                <div style={{ display:'flex', flexDirection:'column' }}>
+                  <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Seats avail</label>
+                  <input className='input' type='number' value={editForm.seats_available} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_available:e.target.value}))} required />
+                </div>
                 <div style={{ display:'flex', gap:8 }}>
                   <button type='submit' disabled={savingEdit} className='btn btn-outline btn-sm'>{savingEdit?'...':'Save'}</button>
                   <button type='button' onClick={cancelEdit} className='btn btn-outline btn-sm'>Cancel</button>
