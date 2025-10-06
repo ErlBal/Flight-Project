@@ -63,8 +63,10 @@ export default function CountryInput({ label, value, onChange, onBlur, placehold
     setOpen(false)
   }
 
+  // Caption (полное название страны) будет позиционироваться абсолютно, поэтому резервируем место paddingBottom.
+  const captionVisible = !!(value && value.length <= 4)
   return (
-    <div style={{ position:'relative', display:'flex', flexDirection:'column' }} ref={wrapRef}>
+    <div style={{ position:'relative', display:'flex', flexDirection:'column', paddingBottom: captionVisible ? 20 : 20 /* фикс одинаковый */ }} ref={wrapRef}>
       {label && <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>{label}</label>}
       <input
         autoFocus={autoFocus}
@@ -90,18 +92,19 @@ export default function CountryInput({ label, value, onChange, onBlur, placehold
           ))}
         </div>
       )}
-      {/* Резервируем фиксированное место под подпись, чтобы не прыгала раскладка */}
       <div
         style={{
+          position:'absolute',
+          left:0,
+          right:0,
+          bottom:2,
           fontSize:11,
-          marginTop:4,
-          height:16, // фиксированная высота строки
           lineHeight:'16px',
-          opacity: value && value.length <= 4 ? .7 : 0,
-          visibility: value && value.length <= 4 ? 'visible' : 'hidden',
-          transition: 'opacity .15s'
+          opacity: captionVisible ? .7 : 0,
+          visibility: captionVisible ? 'visible' : 'hidden',
+          transition:'opacity .15s'
         }}
-      >{value && value.length <= 4 ? codeToDisplay(value) : ''}</div>
+      >{captionVisible ? codeToDisplay(value) : ''}</div>
     </div>
   )
 }
