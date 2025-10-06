@@ -105,7 +105,7 @@ export default function Dashboard() {
   // Removed search form logic; flights list can be simplified or repurposed later.
 
   return (
-    <div className={styles.dashboardRoot}>
+    <div className={styles.dashboardRoot + ' page-pad'}>
       <h2>My Flights</h2>
       <Flights
         tickets={tickets}
@@ -169,11 +169,11 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
       <div className={styles.filtersRow}>
         <div className={styles.filterGroup}>
           <label className={styles.label}>Confirmation</label>
-          <input value={filterCid} onChange={e=>{ setFilterCid(e.target.value.toUpperCase()); setPage(1) }} placeholder='Start of ID' style={{ padding:4 }} />
+          <input className="input" value={filterCid} onChange={e=>{ setFilterCid(e.target.value.toUpperCase()); setPage(1) }} placeholder='Start of ID' style={{ padding:'6px 8px', fontSize:13, width:160 }} />
         </div>
         <div className={styles.filterGroup}>
           <label className={styles.label}>Status</label>
-          <select value={filterStatus} onChange={e=>{ setFilterStatus(e.target.value); setPage(1) }} style={{ padding:4 }}>
+          <select className="input" value={filterStatus} onChange={e=>{ setFilterStatus(e.target.value); setPage(1) }} style={{ padding:'6px 8px', fontSize:13, width:120 }}>
             <option value=''>All</option>
             <option value='paid'>paid</option>
             <option value='refunded'>refunded</option>
@@ -181,13 +181,13 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
           </select>
         </div>
         <div style={{ display:'flex', alignItems:'flex-end', gap:8 }}>
-          <button disabled={loading} onClick={()=>reload()}>Apply</button>
-          <button disabled={loading} onClick={()=>{ setFilterCid(''); setFilterStatus(''); setPage(1); reload() }}>Reset</button>
+          <button className="btn btn-sm" disabled={loading} onClick={()=>reload()}>Apply</button>
+          <button className="btn btn-outline btn-sm" disabled={loading} onClick={()=>{ setFilterCid(''); setFilterStatus(''); setPage(1); reload() }}>Reset</button>
         </div>
         <div className={styles.pagingControls}>
-          <button disabled={page<=1} onClick={()=>setPage(Math.max(1, page-1))}>Prev</button>
+          <button className="btn btn-outline btn-xs" disabled={page<=1} onClick={()=>setPage(Math.max(1, page-1))}>Prev</button>
           <span className={styles.pageInfo}>Page {page} / {totalPages}</span>
-          <button disabled={page>=totalPages} onClick={()=>setPage(Math.min(totalPages, page+1))}>Next</button>
+          <button className="btn btn-outline btn-xs" disabled={page>=totalPages} onClick={()=>setPage(Math.min(totalPages, page+1))}>Next</button>
         </div>
       </div>
       <ul className={styles.flightsList}>
@@ -216,7 +216,7 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
                   <span className={styles.statusBadge}>{t.status}</span>
                   {past && (
                     <button
-                      className={styles.btnTiny}
+                      className="btn btn-outline btn-xs"
                       onClick={(e) => { e.stopPropagation(); if (confirm('Удалить запись о рейсе из списка? (Не влияет на сервер)')) removePast(t.confirmation_id) }}
                     >Remove</button>
                   )}
@@ -268,7 +268,7 @@ function ReminderModal({ ticket, onClose, refresh, remOps, setRemOps, customInpu
       <div className={styles.modalPanel}>
         <div className={styles.modalHeader}>
           <h3 style={{ margin:0, fontSize:18 }}>Reminders</h3>
-          <button onClick={onClose} style={{ fontSize:13 }}>×</button>
+          <button onClick={onClose} className="btn btn-outline btn-xs" style={{ padding:'4px 8px', fontSize:13, lineHeight:1 }}>×</button>
         </div>
         <div style={{ fontSize:13 }}>
           <strong>{ticket.flight?.airline} {ticket.flight?.flight_number}</strong> {ticket.flight?.origin} → {ticket.flight?.destination}<br />
@@ -284,19 +284,19 @@ function ReminderModal({ ticket, onClose, refresh, remOps, setRemOps, customInpu
           Custom:&nbsp;
           {custom ? (
             <span className={styles.customInline}>
-              <span className={custom.sent ? `${styles.customRemBadge} ${styles.customRemBadgeSent}` : styles.customRemBadge} title={custom.sent? 'Sent':'Scheduled'}>{custom.hours_before}h{custom.sent?' ✓':''}</span>
+              <span title={custom.sent? 'Sent':'Scheduled'} style={{ fontWeight:500, padding:'0 2px' }}>{custom.hours_before}h{custom.sent?' ✓':''}</span>
               {!custom.sent && (
                 <>
-                  <input type='number' min={1} max={240} value={customInput || String(custom.hours_before)} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall} />
-                  <button disabled={remOps} onClick={updateExisting}>Update</button>
+                  <input type='number' min={1} max={240} value={customInput || String(custom.hours_before)} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall + ' input'} style={{ padding:'4px 6px' }} />
+                  <button disabled={remOps} onClick={updateExisting} className="btn btn-sm">Update</button>
                 </>
               )}
-              <button disabled={remOps} onClick={deleteCustom}>Delete</button>
+              <button disabled={remOps} onClick={deleteCustom} className="btn btn-outline btn-sm">Delete</button>
             </span>
           ) : (
             <span className={styles.customInline}>
-              <input type='number' min={1} max={240} value={customInput} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall} />
-              <button disabled={remOps} onClick={setReminder}>Add</button>
+              <input type='number' min={1} max={240} value={customInput} disabled={remOps} onChange={e=>setCustomInput(e.target.value)} className={styles.numberInputSmall + ' input'} style={{ padding:'4px 6px' }} />
+              <button disabled={remOps} onClick={setReminder} className="btn btn-sm">Add</button>
             </span>
           )}
         </div>

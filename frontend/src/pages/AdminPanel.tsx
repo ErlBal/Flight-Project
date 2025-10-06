@@ -10,7 +10,7 @@ type Company = { id: number; name: string; is_active: boolean }
 export default function AdminPanel() {
   const [tab, setTab] = useState<Tab>('users')
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+    <div className="page-pad" style={{ display:'flex', flexDirection:'column', gap:16 }}>
       <h2>Admin Panel</h2>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
   {(['users','companies','stats','banners','offers'] as Tab[]).map(t => (

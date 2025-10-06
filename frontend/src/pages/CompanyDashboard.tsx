@@ -270,15 +270,18 @@ export default function CompanyDashboard() {
   const filteredFlights = flights
 
   return (
-    <div style={{ padding: 12 }}>
+    <div className="page-pad">
       <h2>Company Dashboard</h2>
       <div style={{ border:'1px solid #ddd', padding:12, borderRadius:6, marginBottom:20 }}>
-  <h3 style={{ marginTop:0 }}>Statistics</h3>
+        <h3 style={{ marginTop:0 }}>Statistics</h3>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
-          {(['all','today','week','month'] as const).map(r => (
-            <button key={r} onClick={()=>setStatsRange(r)} style={{ padding:'4px 10px', border:'1px solid '+(statsRange===r?'#444':'#bbb'), background:statsRange===r?'#444':'#f5f5f5', color:statsRange===r?'#fff':'#222', borderRadius:4 }}>{r}</button>
-          ))}
-          <button onClick={loadStats} disabled={loadingStats}>Reload</button>
+          {(['all','today','week','month'] as const).map(r => {
+            const active = statsRange===r
+            return (
+              <button key={r} onClick={()=>setStatsRange(r)} className={active? 'btn btn-sm':'btn btn-outline btn-sm'}>{r}</button>
+            )
+          })}
+          <button onClick={loadStats} disabled={loadingStats} className='btn btn-outline btn-sm'>Reload</button>
         </div>
         {stats && (
           <div style={{ display:'grid', gap:10, gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', fontSize:13 }}>
@@ -314,15 +317,18 @@ export default function CompanyDashboard() {
           </form>
         </>
       )}
-  <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? `${companyNames[0]} flights` : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
-  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10, alignItems:'center' }}>
-    {(['all','active','completed'] as const).map(filt => (
-      <button key={filt} onClick={()=>{ setFlightFilter(filt); setPage(1) }} style={{ padding:'4px 10px', border:'1px solid '+(flightFilter===filt?'#1d3557':'#cbd5e1'), background:flightFilter===filt?'#1d3557':'#f1f5f9', color:flightFilter===filt?'#fff':'#1e293b', borderRadius:20, fontSize:12 }}>{filt}</button>
-    ))}
-    <span style={{ fontSize:12, opacity:.7 }}>Showing {filteredFlights.length} / {total}</span>
-    <label style={{ fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
-      Sort:
-      <select value={sort} onChange={e=>{ setSort(e.target.value); setPage(1) }} style={{ fontSize:12 }}>
+      <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? <span style={{ fontWeight:700 }}>{companyNames[0]} flights</span> : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
+      <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10, alignItems:'center' }}>
+        {(['all','active','completed'] as const).map(filt => {
+          const active = flightFilter===filt
+          return (
+            <button key={filt} onClick={()=>{ setFlightFilter(filt); setPage(1) }} className={active? 'btn btn-xs':'btn btn-outline btn-xs'}>{filt}</button>
+          )
+        })}
+        <span style={{ fontSize:12, opacity:.7 }}>Showing {filteredFlights.length} / {total}</span>
+        <label style={{ fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
+          Sort:
+          <select value={sort} onChange={e=>{ setSort(e.target.value); setPage(1) }} className='input' style={{ fontSize:12, padding:'4px 8px' }}>
         <option value='departure_asc'>Departure ↑</option>
         <option value='departure_desc'>Departure ↓</option>
         <option value='arrival_asc'>Arrival ↑</option>
@@ -335,28 +341,28 @@ export default function CompanyDashboard() {
         <option value='revenue_est_desc'>Revenue est ↓</option>
         <option value='revenue_est_asc'>Revenue est ↑</option>
       </select>
-    </label>
-    <label style={{ fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
-      Page size:
-      <select value={pageSize} onChange={e=>{ setPageSize(Number(e.target.value)); setPage(1) }} style={{ fontSize:12 }}>
+        </label>
+        <label style={{ fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
+          Page size:
+          <select value={pageSize} onChange={e=>{ setPageSize(Number(e.target.value)); setPage(1) }} className='input' style={{ fontSize:12, padding:'4px 8px' }}>
         {[10,25,50,100].map(s=> <option key={s} value={s}>{s}</option>)}
       </select>
-    </label>
-    <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-      <button type='button' disabled={loading || page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Prev</button>
-      <span style={{ fontSize:12 }}>Page {page}/{pages}</span>
-      <button type='button' disabled={loading || page>=pages} onClick={()=>setPage(p=>Math.min(pages,p+1))}>Next</button>
-    </div>
-    <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-      <span style={{ fontSize:12 }}>Go to:</span>
-      <input value={gotoPage} placeholder='№' style={{ width:54, padding:'2px 4px', fontSize:12 }}
-        onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setGotoPage(v) }}
-        onKeyDown={e=>{ if(e.key==='Enter'){ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n) } }} }
-      />
-      <button type='button' disabled={!gotoPage || Number(gotoPage)<1 || Number(gotoPage)>pages} onClick={()=>{ const n=Number(gotoPage); if(n>=1 && n<=pages) setPage(n) }}>Go</button>
-    </div>
-    <button type='button' onClick={load} disabled={loading} style={{ fontSize:12 }}>Reload</button>
-  </div>
+        </label>
+        <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+          <button type='button' className='btn btn-outline btn-xs' disabled={loading || page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))}>Prev</button>
+          <span style={{ fontSize:12 }}>Page {page}/{pages}</span>
+          <button type='button' className='btn btn-outline btn-xs' disabled={loading || page>=pages} onClick={()=>setPage(p=>Math.min(pages,p+1))}>Next</button>
+        </div>
+        <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+          <span style={{ fontSize:12 }}>Go to:</span>
+          <input value={gotoPage} placeholder='№' className='input' style={{ width:60, padding:'4px 6px', fontSize:12 }}
+            onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setGotoPage(v) }}
+            onKeyDown={e=>{ if(e.key==='Enter'){ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n) } }} }
+          />
+          <button type='button' className='btn btn-outline btn-xs' disabled={!gotoPage || Number(gotoPage)<1 || Number(gotoPage)>pages} onClick={()=>{ const n=Number(gotoPage); if(n>=1 && n<=pages) setPage(n) }}>Go</button>
+        </div>
+        <button type='button' onClick={load} disabled={loading} className='btn btn-outline btn-xs'>Reload</button>
+      </div>
   {loading && <p>Loading...</p>}
   {error && <p style={{ color:'red' }}>{error}</p>}
       <ul style={{ listStyle:'none', padding:0 }}>
@@ -365,7 +371,7 @@ export default function CompanyDashboard() {
             <div style={{ display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
               <strong>{f.flight_number}</strong>
               {isAdmin && f.company_name && (
-                <span style={{ background:'#eef', border:'1px solid #99c', padding:'2px 6px', borderRadius:12, fontSize:11 }}>{f.company_name}</span>
+                <span className="badge badge-company">{f.company_name}</span>
               )}
               <span>{f.origin} → {f.destination}</span>
             </div>
@@ -375,16 +381,16 @@ export default function CompanyDashboard() {
               <span style={{ marginLeft:12, fontSize:12, background:'#f1f5f9', padding:'2px 6px', borderRadius:6 }}>Revenue est: <strong>{f.revenue_est ?? (Math.max(0, f.seats_total - f.seats_available) * f.price)}</strong></span>
             </div>
             <div style={{ display:'flex', gap:8, marginTop:6, flexWrap:'wrap' }}>
-              <button onClick={() => togglePassengers(f.id)}>
+              <button onClick={() => togglePassengers(f.id)} className='btn btn-sm'>
                 {passengers[f.id] ? 'Hide passengers' : 'Passengers'}
               </button>
               <div style={{ display:'flex', gap:2 }}>
-                <button type='button' title='-1 seat' onClick={()=>adjustSeats(f.id,-1)} disabled={adjustingSeats[f.id] || f.seats_available<=0}>-1</button>
-                <button type='button' title='+1 seat' onClick={()=>adjustSeats(f.id,1)} disabled={adjustingSeats[f.id] || f.seats_available>=f.seats_total}>+1</button>
-                <button type='button' title='+5 seats' onClick={()=>adjustSeats(f.id,5)} disabled={adjustingSeats[f.id] || f.seats_available+5>f.seats_total}>+5</button>
+                <button type='button' className='btn btn-outline btn-xs' title='-1 seat' onClick={()=>adjustSeats(f.id,-1)} disabled={adjustingSeats[f.id] || f.seats_available<=0}>-1</button>
+                <button type='button' className='btn btn-outline btn-xs' title='+1 seat' onClick={()=>adjustSeats(f.id,1)} disabled={adjustingSeats[f.id] || f.seats_available>=f.seats_total}>+1</button>
+                <button type='button' className='btn btn-outline btn-xs' title='+5 seats' onClick={()=>adjustSeats(f.id,5)} disabled={adjustingSeats[f.id] || f.seats_available+5>f.seats_total}>+5</button>
               </div>
               <div style={{ display:'flex', gap:4 }}>
-                <button type='button' onClick={async ()=>{
+                <button type='button' className='btn btn-outline btn-xs' onClick={async ()=>{
                   try {
                     const r = await api.get(`/company/flights/${f.id}/passengers/export`, { params:{ fmt:'csv' }, responseType:'blob' })
                     const blob = new Blob([r.data], { type: 'text/csv' })
@@ -394,7 +400,7 @@ export default function CompanyDashboard() {
                     URL.revokeObjectURL(url)
                   } catch {}
                 }}>CSV</button>
-                <button type='button' onClick={async ()=>{
+                <button type='button' className='btn btn-outline btn-xs' onClick={async ()=>{
                   try {
                     const r = await api.get(`/company/flights/${f.id}/passengers/export`, { params:{ fmt:'xlsx' }, responseType:'blob' })
                     const blob = new Blob([r.data], { type: 'application/vnd.ms-excel' })
@@ -405,8 +411,8 @@ export default function CompanyDashboard() {
                   } catch {}
                 }}>Excel</button>
               </div>
-              <button onClick={() => startEdit(f)} disabled={editingId===f.id}>Edit</button>
-              <button onClick={() => deleteFlight(f.id)} disabled={deleting[f.id]}> {deleting[f.id] ? '...' : 'Delete'} </button>
+              <button onClick={() => startEdit(f)} disabled={editingId===f.id} className='btn btn-outline btn-sm'>Edit</button>
+              <button onClick={() => deleteFlight(f.id)} disabled={deleting[f.id]} className='btn btn-outline btn-sm'> {deleting[f.id] ? '...' : 'Delete'} </button>
             </div>
             {loadingPassengers[f.id] && <div>Loading list...</div>}
             {passengers[f.id] && !loadingPassengers[f.id] && (
@@ -429,8 +435,8 @@ export default function CompanyDashboard() {
                 <input type='number' value={editForm.seats_total} min={1} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_total:e.target.value}))} required />
                 <input type='number' value={editForm.seats_available} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, seats_available:e.target.value}))} required />
                 <div style={{ display:'flex', gap:8 }}>
-                  <button type='submit' disabled={savingEdit}>{savingEdit?'...':'Save'}</button>
-                  <button type='button' onClick={cancelEdit}>Cancel</button>
+                  <button type='submit' disabled={savingEdit} className='btn btn-sm'>{savingEdit?'...':'Save'}</button>
+                  <button type='button' onClick={cancelEdit} className='btn btn-outline btn-sm'>Cancel</button>
                 </div>
               </form>
             )}

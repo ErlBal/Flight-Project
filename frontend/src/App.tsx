@@ -24,8 +24,11 @@ export default function App() {
 
   const isLanding = loc.pathname === '/'
   const isAuth = loc.pathname === '/login' || loc.pathname === '/register'
+  const isDashboard = loc.pathname.startsWith('/dashboard')
+  const isCompany = loc.pathname.startsWith('/company')
+  const isAdminPage = loc.pathname.startsWith('/admin')
   return (
-    <div className={isLanding || isAuth ? undefined : 'app-shell'} style={{ lineHeight: 1.4 }}>
+  <div className={isLanding || isAuth || isDashboard || isCompany || isAdminPage ? undefined : 'app-shell'} style={{ lineHeight: 1.4 }}>
       <nav className="nav-root">
         <div className="nav-left">
           <Link to="/" className={loc.pathname==='/'? 'nav-link active':'nav-link'}>Home</Link>
@@ -41,11 +44,11 @@ export default function App() {
           {email && <>
             <span style={{ fontSize:13, color:'var(--color-text-faint)' }}>{email}</span>
             <NotificationsBell />
-            <button className="btn btn-outline" style={{ padding:'6px 14px' }} onClick={()=>{ localStorage.removeItem('auth_token'); location.href='/login' }}>Logout</button>
+            <button className="btn btn-outline btn-compact" onClick={()=>{ localStorage.removeItem('auth_token'); location.href='/login' }}>Logout</button>
           </>}
         </div>
       </nav>
-      <div style={{ padding: (isLanding || isAuth) ? '0' : '16px 0' }}>
+      <div style={{ padding: (isLanding || isAuth || isDashboard || isCompany || isAdminPage) ? '0' : '16px 0' }}>
         <Outlet key={loc.pathname} />
       </div>
     </div>
