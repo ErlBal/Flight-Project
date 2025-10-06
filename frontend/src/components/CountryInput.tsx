@@ -90,9 +90,18 @@ export default function CountryInput({ label, value, onChange, onBlur, placehold
           ))}
         </div>
       )}
-      {value && value.length <= 4 && (
-        <div style={{ fontSize:11, marginTop:4, opacity:.7 }}>{codeToDisplay(value)}</div>
-      )}
+      {/* Резервируем фиксированное место под подпись, чтобы не прыгала раскладка */}
+      <div
+        style={{
+          fontSize:11,
+          marginTop:4,
+          height:16, // фиксированная высота строки
+          lineHeight:'16px',
+          opacity: value && value.length <= 4 ? .7 : 0,
+          visibility: value && value.length <= 4 ? 'visible' : 'hidden',
+          transition: 'opacity .15s'
+        }}
+      >{value && value.length <= 4 ? codeToDisplay(value) : ''}</div>
     </div>
   )
 }
