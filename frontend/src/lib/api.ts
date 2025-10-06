@@ -1,10 +1,12 @@
-import axios, { AxiosRequestConfig, AxiosError } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
-const baseURL = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+// Используем прод домен как fallback, чтобы исключить обращения к localhost в собранном билде.
+// Для локальной разработки всё равно выставляй VITE_API_BASE=http://localhost:8000
+const baseURL = import.meta.env.VITE_API_BASE || 'https://flight-project-production.up.railway.app'
 
 const api = axios.create({ baseURL })
 
-api.interceptors.request.use((config: AxiosRequestConfig) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 	const url = config.url || ''
 	// не добавляем токен на эндпоинты логина/регистрации
 	if (/\/auth\/(login|login-json|register)/.test(url)) return config
