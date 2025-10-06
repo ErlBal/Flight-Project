@@ -78,8 +78,8 @@ export default function Landing() {
   }, [])
 
   const [sideBanners, setSideBanners] = useState<any[]>([])
-  const [leftActive, setLeftActive] = useState(0)
-  const [rightActive, setRightActive] = useState(0)
+  // Индекс пары (каждая пара = два последовательных баннера: [i, i+1])
+  const [pairIndex, setPairIndex] = useState(0)
 
   useEffect(() => {
     api.get('/content/banners').then(r => {
@@ -88,42 +88,45 @@ export default function Landing() {
     }).catch(()=>{})
   }, [])
 
-  // Разбивка списков для левой/правой колонок
-  const leftSet: any[] = []
-  const rightSet: any[] = []
-  if (sideBanners.length <= 1) {
-    leftSet.push(...sideBanners)
-  } else if (sideBanners.length === 2) {
-    leftSet.push(sideBanners[0]); rightSet.push(sideBanners[1])
-  } else {
-    // >=3 -> делим по чётности индекса для разнообразия
-    sideBanners.forEach((b, i) => { (i % 2 === 0 ? leftSet : rightSet).push(b) })
-    // если одна колонка получилась пустой (теоретически при length==3 даёт 2/1 - норм)
-    if (!rightSet.length) { rightSet.push(...leftSet.splice(Math.ceil(leftSet.length/2))) }
-  }
-
+  // Количество пар (округляем вверх для нечётного числа баннеров — последний одиночный станет влево)
+  const pairCount = sideBanners.length <= 1 ? sideBanners.length : Math.ceil(sideBanners.length / 2)
+  // Сброс индекса если список сократился
+  useEffect(()=>{ if(pairIndex >= pairCount) setPairIndex(0) }, [pairCount, pairIndex])
   useEffect(() => {
-    if (!leftSet.length && !rightSet.length) return
+    if (pairCount <= 1) return // нечего ротировать
     const iv = setInterval(() => {
-      if (leftSet.length) setLeftActive(i => (i + 1) % leftSet.length)
-      if (rightSet.length) setRightActive(i => (i + 1) % rightSet.length)
-    }, 15000)
+      setPairIndex(i => (i + 1) % pairCount)
+    }, 10000)
     return () => clearInterval(iv)
-  }, [sideBanners])
+  }, [pairCount])
+
+  // Текущая пара
+  let leftBanner: any | null = null
+  let rightBanner: any | null = null
+  if (sideBanners.length === 1) {
+    leftBanner = sideBanners[0]
+  } else if (sideBanners.length >= 2) {
+    const leftIdx = (pairIndex * 2) % sideBanners.length
+    const rightIdx = (leftIdx + 1) % sideBanners.length
+    leftBanner = sideBanners[leftIdx]
+    // Если нечётное: последняя пара будет single (не дублируем один и тот же)
+    if (sideBanners.length % 2 === 1 && leftIdx === sideBanners.length - 1) {
+      rightBanner = null
+    } else {
+      rightBanner = sideBanners[rightIdx]
+    }
+  }
 
   return (
     <div style={{ width:'100%', minHeight:'100vh' }}>
       <style>{responsiveStyles}</style>
       <div style={outerShell}>
         <div className='lp-left-rail' style={leftRail}>
-          {leftSet.map((b:any, idx:number) => {
-            const active = idx === leftActive
-            return (
-              <a key={b.id+':L'} href={b.link_url || '#'} className='rail-banner' style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
-                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={bannerImg} /> : b.title}
-              </a>
-            )
-          })}
+          {leftBanner && (
+            <a key={leftBanner.id+':L:'+pairIndex} href={leftBanner.link_url || '#'} className='rail-banner rail-rot' style={{ ...railBanner, ...railBannerActive }} title={leftBanner.title}>
+              {leftBanner.image_url ? <img loading="lazy" src={leftBanner.image_url} alt={leftBanner.title} style={bannerImg} /> : leftBanner.title}
+            </a>
+          )}
         </div>
 
         <main className='lp-center-main' style={centerMain}>
@@ -209,14 +212,11 @@ export default function Landing() {
         </main>
 
         <div className='lp-right-rail' style={rightRail}>
-          {rightSet.map((b:any, idx:number) => {
-            const active = idx === rightActive
-            return (
-              <a key={b.id+':R'} href={b.link_url || '#'} className='rail-banner' style={{ ...railBanner, ...(active? railBannerActive:{} ) }} title={b.title}>
-                {b.image_url ? <img loading="lazy" src={b.image_url} alt={b.title} style={bannerImg} /> : b.title}
-              </a>
-            )
-          })}
+          {rightBanner && (
+            <a key={rightBanner.id+':R:'+pairIndex} href={rightBanner.link_url || '#'} className='rail-banner rail-rot' style={{ ...railBanner, ...railBannerActive }} title={rightBanner.title}>
+              {rightBanner.image_url ? <img loading="lazy" src={rightBanner.image_url} alt={rightBanner.title} style={bannerImg} /> : rightBanner.title}
+            </a>
+          )}
         </div>
       </div>
 
@@ -233,8 +233,8 @@ export default function Landing() {
 // Новый каркас
 const outerShell: React.CSSProperties = { display:'flex', width:'100%', justifyContent:'center', gap:40, padding:'0 24px', boxSizing:'border-box', maxWidth:'1700px', margin:'0 auto' }
 const centerMain: React.CSSProperties = { flex:'1 1 auto', maxWidth:1320, padding:'32px 40px 80px', position:'relative' }
-const leftRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-start', paddingTop:48, flex:'0 0 200px' }
-const rightRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-end', paddingTop:48, flex:'0 0 200px' }
+const leftRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-start', paddingTop:140, flex:'0 0 200px' }
+const rightRail: React.CSSProperties = { display:'flex', flexDirection:'column', gap:32, alignItems:'flex-end', paddingTop:140, flex:'0 0 200px' }
 const railBanner: React.CSSProperties = { width:200, height:260, background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:12, overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', position:'relative', transition:'all .6s ease', opacity:.7 }
 const railBannerActive: React.CSSProperties = { opacity:1, transform:'translateY(-4px)', boxShadow:'0 6px 28px -4px rgba(0,0,0,0.18)', background:'#fff' }
 const bannerImg: React.CSSProperties = { width:'100%', height:'100%', objectFit:'cover' }
@@ -299,5 +299,8 @@ const buyBtn: React.CSSProperties = { fontSize:12, background:'#1d3557', color:'
 // Инлайновый <style> для адаптива
 const responsiveStyles = `@media (max-width:1400px){ .lp-left-rail, .lp-right-rail{display:none;} .lp-center-main{padding:32px 24px 72px;} } @media (max-width:900px){ .lp-center-main h1{font-size:38px;} }
 @keyframes railFadeIn{0%{opacity:0;transform:translateY(12px);}100%{opacity:1;transform:translateY(0);} }
-.rail-banner{animation:railFadeIn .6s ease;}
+@keyframes railSwapIn{0%{opacity:0;transform:scale(.96) translateY(6px);}100%{opacity:1;transform:scale(1) translateY(0);} }
+.
+rail-banner{animation:railFadeIn .6s ease;}
+.rail-rot{animation:railSwapIn .7s cubic-bezier(.16,.8,.24,1);}
 `;
