@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import api, { extractErrorMessage } from '../lib/api'
 
 type AdminUser = { id: number; email: string; full_name: string; role: string; is_active: boolean; companies?: number[]; company_names?: string[] }
@@ -9,19 +9,69 @@ type Company = { id: number; name: string; is_active: boolean }
 
 export default function AdminPanel() {
   const [tab, setTab] = useState<Tab>('users')
+  const [leaving, setLeaving] = useState<Tab | null>(null)
+  const containerRef = useRef<HTMLDivElement|null>(null)
+
+  const changeTab = (next:Tab) => {
+    if(next === tab) return
+    // trigger exit animation
+    setLeaving(tab)
+    setTab(next)
+    // clean after animation time (~280ms)
+    setTimeout(()=> setLeaving(null), 320)
+  }
+
   return (
-    <div className="page-pad" style={{ display:'flex', flexDirection:'column', gap:16 }}>
-      <h2>Admin Panel</h2>
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-        {(['users','companies','stats','banners','offers'] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)} className='btn btn-outline btn-sm'>{t}</button>
-        ))}
+    <div className="page-pad" style={{ display:'flex', flexDirection:'column', gap:28 }}>
+      <div className='glass glass-pad anim-fade-up' style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <h2 style={{ margin:'0 0 4px' }}>Admin Panel</h2>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          {(['users','companies','stats','banners','offers'] as Tab[]).map((t,idx) => {
+            const active = tab===t
+            return (
+              <button
+                key={t}
+                onClick={() => changeTab(t)}
+                className={`${active? 'btn btn-sm':'btn btn-outline btn-sm'} admin-tab ${active? 'tab-active':''}`}
+                style={{ animation:'fadeInUp .5s ease forwards', opacity:0, animationDelay:(0.03*idx)+'s', paddingBottom: active? 14: 14 }}
+              >{t}</button>
+            )
+          })}
+        </div>
       </div>
-      {tab === 'users' && <UsersSection />}
-  {tab === 'companies' && <CompaniesSection />}
-      {tab === 'stats' && <StatsSection />}
-  {tab === 'banners' && <BannersSection />}
-  {tab === 'offers' && <OffersSection />}
+      <div className='anim-fade-up-delayed' style={{ position:'relative', minHeight:220 }} ref={containerRef}>
+        {/* Leaving (old) content overlay for cross-fade */}
+        {leaving && (
+          <div className='glass glass-pad cross-fade-exit' key={'leave-'+leaving}>
+            <AdminSectionInner tab={leaving} />
+          </div>
+        )}
+        {/* Incoming content */}
+        <div className='glass glass-pad cross-fade-enter' key={'enter-'+tab}>
+          <AdminSectionInner tab={tab} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Internal switcher extracted for reuse within cross-fade wrapper
+function AdminSectionInner({ tab }:{ tab:Tab }) {
+  switch(tab){
+    case 'users': return <UsersSection />
+    case 'companies': return <CompaniesSection />
+    case 'stats': return <StatsSection />
+    case 'banners': return <BannersSection />
+    case 'offers': return <OffersSection />
+    default: return null
+  }
+}
+
+// Generic section wrapper (future extension point)
+export function AdminSection({ children, delay=0 }: { children:React.ReactNode; delay?:number }) {
+  return (
+    <div className='glass glass-pad anim-fade-up' style={delay? { animationDelay: delay+'s'}: undefined}>
+      {children}
     </div>
   )
 }
