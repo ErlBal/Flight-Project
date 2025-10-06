@@ -271,9 +271,9 @@ export default function CompanyDashboard() {
 
   return (
   <div className="page-pad">
-      <h2>Company Dashboard</h2>
-  <div className="panel panel-pad" style={{ marginBottom:20 }}>
-        <h3 style={{ marginTop:0 }}>Statistics</h3>
+      <div className='glass glass-pad anim-fade-up' style={{ marginBottom:32 }}>
+        <h2 style={{ margin:'0 0 18px' }}>Company Dashboard</h2>
+        <h3 style={{ margin:'0 0 12px' }}>Statistics</h3>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10 }}>
           {(['all','today','week','month'] as const).map(r => (
               <button key={r} onClick={()=>setStatsRange(r)} className='btn btn-outline btn-sm'>{r}</button>
@@ -294,9 +294,9 @@ export default function CompanyDashboard() {
         )}
       </div>
       {!isAdmin && (
-        <>
-          <h3>Add flight</h3>
-          <form onSubmit={submit} className='panel panel-pad' style={{ display:'grid', gap:8, maxWidth:600, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
+        <div className='glass glass-pad anim-fade-up' style={{ marginBottom:32 }}>
+          <h3 style={{ marginTop:0, marginBottom:14 }}>Add flight</h3>
+          <form onSubmit={submit} className='' style={{ display:'grid', gap:8, maxWidth:680, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
             {(['flight_number','origin','destination'] as const).map(field => (
               <input
                 key={field}
@@ -312,10 +312,11 @@ export default function CompanyDashboard() {
             <input type='number' placeholder='seats_total' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
             <button type='submit' disabled={creating} className='btn btn-outline btn-sm'>{creating ? '...' : 'Create'}</button>
           </form>
-        </>
+        </div>
       )}
-      <h3 style={{ marginTop:24 }}>{companyNames.length === 1 ? <span style={{ fontWeight:700 }}>{companyNames[0]} flights</span> : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
-  <div className='panel panel-pad' style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10, alignItems:'center' }}>
+      <div className='glass glass-pad anim-fade-up-delayed' style={{ marginBottom:28 }}>
+      <h3 style={{ marginTop:0, marginBottom:14 }}>{companyNames.length === 1 ? <span style={{ fontWeight:700 }}>{companyNames[0]} flights</span> : (companyNames.length>1 ? 'Company flights' : 'My flights')}</h3>
+  <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:10, alignItems:'center' }}>
         {(['all','active','completed'] as const).map(filt => {
           const active = flightFilter===filt
           return (
@@ -360,11 +361,15 @@ export default function CompanyDashboard() {
         </div>
         <button type='button' onClick={load} disabled={loading} className='btn btn-outline btn-xs'>Reload</button>
       </div>
-  {loading && <p>Loading...</p>}
-  {error && <p style={{ color:'red' }}>{error}</p>}
-      <ul style={{ listStyle:'none', padding:0 }}>
-        {filteredFlights.map((f: CompanyFlight) => (
-          <li key={f.id} className='panel panel-pad' style={{ padding:10, marginBottom:8 }}>
+      {loading && <p style={{ fontSize:12 }}>Loading...</p>}
+      {error && <p style={{ color:'red', fontSize:12 }}>{error}</p>}
+  <div className='glass glass-pad' style={{ paddingTop:16 }}>
+      <ul className='vlist vlist-gap-md'>
+        {filteredFlights.map((f: CompanyFlight, idx) => {
+          const isCompleted = new Date(f.departure).getTime() <= Date.now()
+          const statusClass = isCompleted ? 'flight-completed' : 'flight-active'
+          return (
+          <li key={f.id} className={`panel panel-pad companyFlightItem anim-fade-up ${statusClass}`} style={{ padding:10, margin:0, animationDelay: (0.05*idx)+'s' }}>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6, alignItems:'center' }}>
               <strong>{f.flight_number}</strong>
               {isAdmin && f.company_name && (
@@ -438,8 +443,10 @@ export default function CompanyDashboard() {
               </form>
             )}
           </li>
-        ))}
+        )})}
       </ul>
+  </div>
+  </div>
     </div>
   )
 }

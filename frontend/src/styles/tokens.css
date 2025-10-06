@@ -129,6 +129,26 @@
 .panel { background: var(--color-bg); border:1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
 .panel-pad { padding:20px 24px; }
 
+/* Vertical list utility */
+.vlist { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; }
+.vlist-gap-sm { gap:8px; }
+.vlist-gap-md { gap:12px; }
+.vlist-gap-lg { gap:18px; }
+
+/* Flight status accent bars */
+.flight-active { position:relative; }
+.flight-active::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:4px; border-radius:3px; background:linear-gradient(180deg,#10b981,#059669); opacity:.9; }
+.flight-completed { position:relative; }
+.flight-completed::before { content:""; position:absolute; left:0; top:8px; bottom:8px; width:4px; border-radius:3px; background:linear-gradient(180deg,#9ca3af,#6b7280); opacity:.9; }
+
+/* Ensure padding not hidden under bar */
+.flight-active, .flight-completed { padding-left:14px !important; }
+
+/* Company flight item hover (вариант A) */
+.companyFlightItem { background: rgba(255,255,255,0.70); transition: background .25s, border-color .25s, transform .35s; }
+.companyFlightItem:hover { background: rgba(255,255,255,0.92); border-color: var(--color-border-strong); transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce){ .companyFlightItem:hover { transform:none; } }
+
 /* Text contrast helpers over image backgrounds */
 .text-contrast { color:#111; text-shadow:0 1px 2px rgba(255,255,255,0.6); }
 .text-contrast-soft { color: var(--color-text-soft); text-shadow:0 1px 2px rgba(255,255,255,0.5); }
