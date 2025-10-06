@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { decodeToken } from '../lib/authClaims'
 import api, { extractErrorMessage } from '../lib/api'
+import { toCountryCode } from '../lib/countryCodes'
+import CountryInput from '../components/CountryInput'
 
 // Domain types
 type CompanyFlight = {
@@ -136,6 +138,8 @@ export default function CompanyDashboard() {
     try {
       await api.post('/company/flights', {
         ...form,
+        origin: toCountryCode(String(form.origin)) || String(form.origin).toUpperCase(),
+        destination: toCountryCode(String(form.destination)) || String(form.destination).toUpperCase(),
         price: Number(form.price),
         seats_total: Number(form.seats_total),
         seats_available: Number(form.seats_available),
@@ -218,8 +222,8 @@ export default function CompanyDashboard() {
       const payload:any = {
         airline: editForm.airline,
         flight_number: editForm.flight_number,
-        origin: editForm.origin,
-        destination: editForm.destination,
+        origin: toCountryCode(String(editForm.origin)) || String(editForm.origin).toUpperCase(),
+        destination: toCountryCode(String(editForm.destination)) || String(editForm.destination).toUpperCase(),
         departure: editForm.departure,
         arrival: editForm.arrival,
         price: Number(editForm.price),
@@ -297,15 +301,14 @@ export default function CompanyDashboard() {
         <div className='glass glass-pad anim-fade-up' style={{ marginBottom:32 }}>
           <h3 style={{ marginTop:0, marginBottom:14 }}>Add flight</h3>
           <form onSubmit={submit} className='' style={{ display:'grid', gap:8, maxWidth:680, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
-            {(['flight_number','origin','destination'] as const).map(field => (
-              <input
-                key={field}
-                placeholder={field}
-                value={form[field]}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, [field]: e.target.value }))}
-                required
-              />
-            ))}
+            <input
+              placeholder='flight_number'
+              value={form.flight_number}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, flight_number: e.target.value }))}
+              required
+            />
+            <CountryInput label='origin' value={String(form.origin)} onChange={(v)=>setForm(o=>({ ...o, origin:v }))} />
+            <CountryInput label='destination' value={String(form.destination)} onChange={(v)=>setForm(o=>({ ...o, destination:v }))} />
             <input type='datetime-local' value={form.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, departure: e.target.value }))} required />
             <input type='datetime-local' value={form.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, arrival: e.target.value }))} required />
             <input type='number' placeholder='price' value={form.price} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, price: e.target.value }))} min={0} required />
@@ -429,8 +432,8 @@ export default function CompanyDashboard() {
               <form onSubmit={saveEdit} style={{ marginTop:10, display:'grid', gap:6, gridTemplateColumns:'repeat(auto-fill,minmax(160px,1fr))' }}>
                 <input value={editForm.airline} placeholder='airline' onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, airline:e.target.value}))} required />
                 <input value={editForm.flight_number} placeholder='flight_number' onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, flight_number:e.target.value}))} required />
-                <input value={editForm.origin} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, origin:e.target.value}))} required />
-                <input value={editForm.destination} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, destination:e.target.value}))} required />
+                <CountryInput label='origin' value={String(editForm.origin)} onChange={(v)=>setEditForm(o=>o && ({ ...o, origin:v }))} />
+                <CountryInput label='destination' value={String(editForm.destination)} onChange={(v)=>setEditForm(o=>o && ({ ...o, destination:v }))} />
                 <input type='datetime-local' value={editForm.departure} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, departure:e.target.value}))} required />
                 <input type='datetime-local' value={editForm.arrival} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, arrival:e.target.value}))} required />
                 <input type='number' value={editForm.price} min={0} onChange={(e:React.ChangeEvent<HTMLInputElement>)=>setEditForm((o: FlightEditForm | null)=>o && ({...o, price:e.target.value}))} required />

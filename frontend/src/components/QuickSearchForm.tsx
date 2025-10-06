@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { toCountryCode } from '../lib/countryCodes'
+import CountryInput from './CountryInput'
 
 export interface SearchCriteria {
   origin?: string
@@ -41,47 +43,26 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const originCode = toCountryCode(origin) || (origin.trim().toUpperCase() || undefined)
+    const destinationCode = toCountryCode(destination) || (destination.trim().toUpperCase() || undefined)
     onSearch?.({
-      origin: origin.trim().toUpperCase() || undefined,
-      destination: destination.trim().toUpperCase() || undefined,
+      origin: originCode,
+      destination: destinationCode,
       date: date || undefined,
       passengers: passengers || undefined,
       min_price: minPrice ? Number(minPrice) : undefined,
       max_price: maxPrice ? Number(maxPrice) : undefined,
     })
+    // Отразим нормализованные значения в UI
+    if (originCode) setOrigin(originCode)
+    if (destinationCode) setDestination(destinationCode)
   }
 
   return (
     <form onSubmit={handleSubmit} style={formStyle} className="qs-search-grid">
       <style>{quickSearchResponsiveCss}</style>
-      <div style={{ ...fieldCol }} className='qs-cell'> 
-        <label style={labelStyle}>Origin</label>
-  <input
-    value={origin}
-    onChange={e => {
-      const v = e.target.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)
-      setOrigin(v)
-    }}
-    placeholder="AAA"
-    maxLength={3}
-    className="input"
-    style={{ ...inputOverride, textTransform:'uppercase' }}
-  />
-      </div>
-      <div style={{ ...fieldCol }} className='qs-cell'> 
-        <label style={labelStyle}>Destination</label>
-  <input
-    value={destination}
-    onChange={e => {
-      const v = e.target.value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3)
-      setDestination(v)
-    }}
-    placeholder="BBB"
-    maxLength={3}
-    className="input"
-    style={{ ...inputOverride, textTransform:'uppercase' }}
-  />
-      </div>
+      <div className='qs-cell'><CountryInput label='Origin' value={origin} onChange={setOrigin} /></div>
+      <div className='qs-cell'><CountryInput label='Destination' value={destination} onChange={setDestination} /></div>
       <div style={{ ...fieldCol }} className='qs-cell'> 
         <label style={labelStyle}>Date</label>
   <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" style={inputOverride} />
