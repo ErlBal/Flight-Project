@@ -473,7 +473,7 @@ function StatsSection() {
 }
 
 // Минимальный компонент для line sparkline на SVG
-function Sparkline({ data, width=120, height=40, color='#0f62fe', strokeWidth=1.5, smooth=false, valueFormatter }:{
+function Sparkline({ data, width=120, height=40, color='var(--color-border-strong)', strokeWidth=1.5, smooth=false, valueFormatter }:{
   data: { x:string; y:number|null }[]
   width?: number
   height?: number
