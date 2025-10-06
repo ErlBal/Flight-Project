@@ -31,7 +31,7 @@ def seed_demo_data():
             db.commit()
             db.refresh(demo_company)
 
-     # Demo flights удалены по запросу. Оставляем блок закомментированным для возможного будущего использования.
+    # Demo flights removed on request. Keeping the block commented for potential future use.
      # if db.query(Flight).count() == 0:
      #     now = datetime.utcnow()
      #     flights = [

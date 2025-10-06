@@ -9,7 +9,7 @@ class Offer(Base):
     title = Column(String(200), nullable=False)
     subtitle = Column(String(300), nullable=True)
     price_from = Column(Numeric(10, 2), nullable=True)
-    flight_ref = Column(String(50), nullable=True)  # произвольная ссылка: номер рейса, код акции и т.п.
+    flight_ref = Column(String(50), nullable=True)  # arbitrary reference: flight number, promo code, etc.
     tag = Column(String(32), nullable=True)  # sale | new | last_minute | info
     description = Column(Text, nullable=True)
     mode = Column(String(16), nullable=False, server_default='interactive')  # interactive | info

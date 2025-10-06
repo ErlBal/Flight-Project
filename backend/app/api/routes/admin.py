@@ -24,30 +24,30 @@ def list_users(
     search: str | None = None,
     db: Session = Depends(get_db),
 ):
-    """Постраничный список пользователей.
+    """Paginated list of users.
 
-    Возвращает:
-      items: текущая страница пользователей (со списком компаний для менеджеров)
-      total: общее количество пользователей под выбранным фильтром
-      page, page_size, pages
+    Returns:
+        items: current page of users (with companies list for managers)
+        total: total number of users under current filter
+        page, page_size, pages
     """
     page = max(page, 1)
-    page_size = max(1, min(page_size, 200))  # ограничим верхний предел
+    page_size = max(1, min(page_size, 200))  # cap upper bound
 
     q = db.query(User)
     if company_id is not None:
-        # Фильтр: только менеджеры указанной компании (или все не-менеджеры чтобы список не терял остальных?)
-        # Логика прежняя: оставляем пользователей которые либо не менеджеры, либо менеджеры этой компании.
+        # Filter: only managers of the specified company (keep non-managers so list doesn't lose them)
+        # Logic: keep users who are not company_manager OR are managers of this company.
         q = q.join(CompanyManager, isouter=True).filter(
             (User.role != "company_manager") | (CompanyManager.company_id == company_id)
         )
     if search:
         s = f"%{search.strip()}%"
-        # ILIKE для PostgreSQL (если БД другая — fallback на lower())
+        # ILIKE for PostgreSQL (fallback to lower() for other DBs)
         try:
             q = q.filter((User.email.ilike(s)) | (User.full_name.ilike(s)))
         except AttributeError:
-            # На случай SQLite: emulation
+            # SQLite fallback emulation
             q = q.filter((func.lower(User.email).like(s.lower())) | (func.lower(User.full_name).like(s.lower())))
     q = q.order_by(User.id.asc())
 
@@ -55,7 +55,7 @@ def list_users(
     offset = (page - 1) * page_size
     users = q.offset(offset).limit(page_size).all()
 
-    # Preload only для менеджеров на текущей странице
+    # Preload only for managers on this page
     manager_user_ids = [u.id for u in users if u.role == "company_manager"]
     links = []
     if manager_user_ids:
@@ -187,17 +187,17 @@ def service_stats_series(
     limit_days: int = Query(180, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
-    """Возвращает временной ряд метрик по дням.
+        """Return a time series of service metrics aggregated by day.
 
-    Параметры:
-      range: all|today|week|month (или all для всей истории, но ограниченной limit_days)
-      metrics: запятая через список метрик (passengers,revenue,flights,seats_sold,seats_capacity,load_factor)
-      granularity: пока поддерживается только 'day'
-      limit_days: ограничение максимальной длины серии для range=all
+        Parameters:
+            range: all|today|week|month (all = entire history but limited by limit_days)
+            metrics: comma separated list of metrics (passengers,revenue,flights,seats_sold,seats_capacity,load_factor)
+            granularity: currently only 'day' is supported
+            limit_days: maximum length of the series for range=all
 
-    Формат ответа:
-      { range, granularity, metrics:[...], points:[ { date:'YYYY-MM-DD', values:{metric: value,...}} ] }
-    """
+        Response format:
+            { range, granularity, metrics:[...], points:[ { date:'YYYY-MM-DD', values:{metric: value,...}} ] }
+        """
     if granularity != "day":
         raise HTTPException(status_code=400, detail="only 'day' granularity supported")
 
@@ -210,7 +210,7 @@ def service_stats_series(
     else:
         requested = ["passengers", "revenue", "flights", "load_factor"]
 
-    # Диапазон дат
+    # Date range
     now = datetime.utcnow()
     def _time_range(name: str):
         if name == "today":
@@ -227,9 +227,9 @@ def service_stats_series(
         return start, end
 
     start, end = _time_range(range)
-    # Для all определяем минимум по данным
+    # For range=all determine earliest data point
     if range == "all":
-        # Минимумы
+        # Minimum timestamps across tickets and flights
         min_ticket_dt = db.query(func.min(Ticket.purchased_at)).scalar()
         min_flight_dt = db.query(func.min(Flight.departure)).scalar()
         earliest = None
@@ -237,27 +237,27 @@ def service_stats_series(
             if dt and (earliest is None or dt < earliest):
                 earliest = dt
         if earliest is None:
-            # Нет данных
+            # No data
             return {"range": range, "granularity": granularity, "metrics": requested, "points": []}
-        # Ограничим limit_days
+    # Enforce limit_days cap
         if (now - earliest).days > limit_days:
             start = now - timedelta(days=limit_days)
         else:
             start = earliest
         end = now
     if start is None or end is None:
-        # safety (если range не all и не распознан)
+        # Safety fallback (unexpected range value)
         start = now - timedelta(days=7)
         end = now
 
-    # Нормализуем к началу дня
+    # Normalize to start of the day boundaries
     start_day = datetime(start.year, start.month, start.day)
     end_day = datetime(end.year, end.month, end.day)
     if end_day < end:
-        # включим текущий день
+    # ensure current day included
         end_day = end_day
 
-    # Агрегация билетов (passengers / seats_sold / revenue)
+    # Ticket aggregation (passengers / seats_sold / revenue)
     tickets_q = db.query(
         func.date(Ticket.purchased_at).label("d"),
         func.count(Ticket.id).label("passengers"),
@@ -266,7 +266,7 @@ def service_stats_series(
     tickets_rows = tickets_q.group_by(func.date(Ticket.purchased_at)).all()
     tickets_map = {str(r.d): r for r in tickets_rows}
 
-    # Агрегация рейсов (flights / seats_capacity)
+    # Flight aggregation (flights / seats_capacity)
     flights_q = db.query(
         func.date(Flight.departure).label("d"),
         func.count(Flight.id).label("flights"),

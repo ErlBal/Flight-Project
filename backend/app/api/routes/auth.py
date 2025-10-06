@@ -17,11 +17,11 @@ router = APIRouter()
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Классический логин: пользователь уже должен существовать. Без автосоздания.
-    Возвращает 401 если:
-      - пользователь не найден
-      - пароль неверен
-    Возвращает 403 если пользователь заблокирован.
+    """Classic login: user must already exist (no auto-creation).
+    Returns 401 if:
+        - user not found
+        - password incorrect
+    Returns 403 if user is blocked.
     """
     email = form_data.username.lower().strip()
     user = db.query(User).filter(User.email == email).first()
@@ -40,7 +40,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @router.post("/login-json", response_model=Token)
 def login_json(payload: UserLogin, db: Session = Depends(get_db)):
-    """JSON логин без автосоздания. Поведение идентично /login."""
+    """JSON login with no auto-creation. Behavior identical to /login."""
     email = payload.email.lower().strip()
     user = db.query(User).filter(User.email == email).first()
     if not user:

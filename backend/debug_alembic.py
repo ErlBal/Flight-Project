@@ -1,9 +1,9 @@
-"""Вспомогательный скрипт для отладки применения Alembic миграций.
+"""Helper script to debug application of Alembic migrations.
 
-Запускать из каталога backend внутри активного venv:
+Run from the backend directory inside an active virtual environment:
     python debug_alembic.py
 
-Печатает шаги и исключение (если есть)."""
+Prints steps and any exception (if present)."""
 from alembic.config import Config
 from alembic import command
 import os

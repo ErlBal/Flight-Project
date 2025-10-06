@@ -44,12 +44,12 @@ def list_company_flights(
     db: Session = Depends(get_db),
     identity=Depends(get_current_identity)
 ):
-    """Список рейсов с пагинацией и сортировкой.
+    """List flights with pagination and sorting.
 
-        sort варианты:
+        sort options:
             departure_asc|departure_desc|arrival_asc|arrival_desc|price_asc|price_desc|
             seats_available_desc|seats_available_asc|created_desc|revenue_est_desc|revenue_est_asc
-    (created_desc = surrogate по id убыв.)
+    (created_desc = surrogate by id descending.)
     """
     email, roles = identity
     if "admin" in roles:
@@ -60,7 +60,7 @@ def list_company_flights(
             return {"items": [], "total": 0, "page": page, "page_size": page_size, "pages": 1}
         q = db.query(Flight).filter(Flight.company_id.in_(company_ids))
 
-    # Фильтр по статусу (active = будущее, completed = прошедшее)
+    # Filter by status (active = future, completed = past)
     now = datetime.utcnow()
     if status == "active":
         q = q.filter(Flight.departure > now)
@@ -87,8 +87,8 @@ def list_company_flights(
     elif sort == "created_desc":
         q = q.order_by(Flight.id.desc())
     elif sort == "revenue_est_desc":
-        # seats_sold = seats_total - seats_available; оценка = price * (seats_total - seats_available)
-        # Для сортировки используем выражение; price Numeric -> приведём через cast к float (необязательно)
+    # seats_sold = seats_total - seats_available; estimate = price * (seats_total - seats_available)
+    # For sorting we use an expression; price Numeric -> could cast to float (optional)
         rev_expr = (Flight.price * (Flight.seats_total - Flight.seats_available))
         q = q.order_by(rev_expr.desc())
     elif sort == "revenue_est_asc":
@@ -105,7 +105,7 @@ def list_company_flights(
     flights = q.offset(offset).limit(page_size).all()
 
     items = []
-    # Предзагрузка имён компаний
+    # Preload company names
     company_ids_set = {f.company_id for f in flights if f.company_id}
     company_map: dict[int, str] = {}
     if company_ids_set:
@@ -125,7 +125,7 @@ def list_company_flights(
             "seats_available": f.seats_available,
             "company_id": f.company_id,
             "company_name": company_map.get(f.company_id) if f.company_id else None,
-            # Добавляем серверную оценку выручки (продано * price)
+            # Add server-side revenue estimate (sold * price)
             "revenue_est": float(f.price) * max(0, (f.seats_total - f.seats_available)),
         })
     return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
@@ -168,15 +168,15 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
         raise HTTPException(status_code=404, detail="Flight not found")
     if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
-    # 1. нельзя редактировать прошлый рейс
+    # 1. can't edit a past flight
     now = datetime.utcnow()
     if f.departure <= now:
         raise HTTPException(status_code=400, detail="Past flight cannot be edited")
 
-    # Определим проданные билеты (paid)
+    # Determine sold (paid) tickets
     sold = db.query(func.count(Ticket.id)).filter(Ticket.flight_id == f.id, Ticket.status == "paid").scalar() or 0
 
-    # Правило: seats_total нельзя уменьшить ниже sold
+    # Rule: seats_total cannot be reduced below sold
     new_seats_total = payload.get("seats_total", f.seats_total)
     if new_seats_total < sold:
         raise HTTPException(status_code=400, detail="seats_total cannot be less than already sold seats")
@@ -190,11 +190,11 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
 
     seats_available_changed = False
     if "seats_total" in changed_fields:
-        # сначала автокоррекция под sold
+    # first auto-adjust seats_available based on sold
         f.seats_available = max(0, f.seats_total - sold)
 
     if "seats_available" in payload:
-        # Разрешаем ручное редактирование с правилами: sold <= seats_available <= seats_total
+    # Allow manual edit with rules: sold <= seats_available <= seats_total
         try:
             new_sa = int(payload["seats_available"])
         except Exception:
@@ -208,16 +208,16 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
             changed_fields["seats_available"] = {"old": f.seats_available, "new": new_sa}
             f.seats_available = new_sa
 
-    # Ограничение: price можно менять только для будущего рейса (мы уже гарантировали f.departure > now)
-    # seats_available прямой установкой через payload запрещаем (игнорируем), расчет автоматический выше
+    # Restriction: price can only change for future flights (already ensured f.departure > now)
+    # Direct setting of seats_available via payload is ignored; it's calculated above
 
     db.commit()
 
-    # Если есть изменения — создать уведомления пользователям с paid билетами
+    # If there are changes — create notifications for users with paid tickets
     if changed_fields:
         tickets_paid = db.query(Ticket).filter(Ticket.flight_id == f.id, Ticket.status == "paid").all()
         if tickets_paid:
-            # Сформируем краткое описание изменений
+            # Build short description of changes
             def fmt_val(v):
                 if hasattr(v, 'isoformat'):
                     try:
@@ -230,22 +230,22 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
                 summary_parts.append(f"{k}: {fmt_val(diff['old'])} -> {fmt_val(diff['new'])}")
             summary = ", ".join(summary_parts)[:900]
             created_notifications: list[Notification] = []
-            # Группируем по user_email чтобы не слать по одному за каждый билет
+            # Group by user_email so we don't send one per ticket
             from collections import defaultdict
             by_user: dict[str, int] = defaultdict(int)
             for t in tickets_paid:
                 by_user[t.user_email] += 1
             for user_email, count in by_user.items():
-                suffix = "" if count == 1 else f" (билетов: {count})"
+                suffix = "" if count == 1 else f" (tickets: {count})"
                 n = Notification(
                     user_email=user_email,
                     type="flight_update",
-                    message=f"Ваш рейс {f.flight_number} обновлён: {summary}{suffix}"
+                    message=f"Your flight {f.flight_number} was updated: {summary}{suffix}"
                 )
                 db.add(n)
                 created_notifications.append(n)
             db.commit()
-            # Push через WebSocket (fire & forget)
+            # Push via WebSocket (fire & forget)
             import asyncio
             async def _push():
                 for n in created_notifications:
@@ -259,10 +259,10 @@ def update_company_flight(flight_id: int, payload: dict, db: Session = Depends(g
             try:
                 asyncio.create_task(_push())
             except RuntimeError:
-                # Если нет текущего loop (например в sync контексте Uvicorn workers) — игнор
+                # If there's no current loop (e.g. in a sync Uvicorn worker context) — ignore
                 pass
 
-    # Если seats_total или seats_available изменилось — пуш обновлённые seats_available
+    # If seats_total or seats_available changed — push updated seats_available
     if "seats_total" in changed_fields or seats_available_changed:
         import asyncio
         try:
@@ -283,12 +283,12 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
         raise HTTPException(status_code=404, detail="Flight not found")
     if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
-    # Админ может удалять любой рейс; менеджеру запрещено удалять прошедшие
+    # Admin can delete any flight; manager is forbidden to delete past flights
     now = datetime.utcnow()
     if "admin" not in roles and f.departure <= now:
         raise HTTPException(status_code=400, detail="Past flight cannot be deleted")
 
-    # Найти все оплаченные билеты и сделать refund + уведомления
+    # Find all paid tickets and mark refund + create notifications
     tickets_paid = db.query(Ticket).filter(Ticket.flight_id == f.id, Ticket.status == "paid").all()
     refund_count = 0
     created_notifications: list[Notification] = []
@@ -299,11 +299,11 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
         refund_count += 1
         user_ticket_counts[t.user_email] += 1
     for user_email, count in user_ticket_counts.items():
-        plural = "" if count == 1 else f" (билетов: {count})"
+        plural = "" if count == 1 else f" (tickets: {count})"
         n = Notification(
             user_email=user_email,
             type="flight_cancel",
-            message=f"Ваш рейс {f.flight_number} отменён. Возврат билетов: {count}{plural}."
+            message=f"Your flight {f.flight_number} was cancelled. Tickets refunded: {count}{plural}."
         )
         db.add(n)
         created_notifications.append(n)
@@ -330,8 +330,8 @@ def delete_company_flight(flight_id: int, db: Session = Depends(get_db), identit
 
 @router.post("/flights/{flight_id}/seats-adjust", response_model=dict)
 def adjust_seats(flight_id: int, delta: int = Query(..., ge=-1000, le=1000), db: Session = Depends(get_db), identity=Depends(get_current_identity)):
-    """Быстрое изменение доступных мест delta (может быть отрицательным/положительным).
-    Правила: 0 <= seats_available+delta <= seats_total; также >= sold (оплаченных).
+    """Quick adjustment of available seats by delta (can be negative/positive).
+    Rules: 0 <= seats_available+delta <= seats_total; also >= sold (paid).
     """
     email, roles = identity
     company_ids = _get_manager_company_ids(db, email) if "admin" not in roles else []
@@ -394,7 +394,7 @@ def export_passengers(flight_id: int, fmt: str = Query("csv", pattern="^(csv|xls
     if "admin" not in roles and company_ids and f.company_id not in company_ids:
         raise HTTPException(status_code=403, detail="Not your company flight")
     tickets = db.query(Ticket).filter(Ticket.flight_id == flight_id, Ticket.status == "paid").all()
-    # Дополнительные поля: компания и маршрут (origin, destination)
+    # Additional fields: company and route (origin, destination)
     company_name = db.query(Company.name).filter(Company.id == f.company_id).scalar() if f.company_id else ""
     rows = [
         [
@@ -427,9 +427,9 @@ def export_passengers(flight_id: int, fmt: str = Query("csv", pattern="^(csv|xls
         data = buf.getvalue().encode("utf-8-sig")
         filename = f"passengers_f{flight_id}.csv"
         return Response(data, media_type="text/csv", headers={"Content-Disposition": f"attachment; filename={filename}"})
-    else:  # xlsx minimal (SpreadsheetML XML) – без внешних зависимостей
-        # Очень простой XML (Excel откроет). Для полноценного XLSX требуется zip + sheet, но
-        # используем "XML Spreadsheet 2003" формат.
+    else:  # xlsx minimal (SpreadsheetML XML) – no external dependencies
+        # Very simple XML (Excel will open). For a full XLSX you need zip + sheets, but here we
+        # use the "XML Spreadsheet 2003" format.
         def esc(s: str):
             import html
             return html.escape(s, quote=True)
@@ -444,7 +444,7 @@ def export_passengers(flight_id: int, fmt: str = Query("csv", pattern="^(csv|xls
             "<Worksheet ss:Name=\"Passengers\"><Table>" + ''.join(cells_xml) + "</Table></Worksheet></Workbook>"
         )
         data = xml.encode("utf-8")
-        filename = f"passengers_f{flight_id}.xml"  # расширение xml, Excel откроет
+        filename = f"passengers_f{flight_id}.xml"  # xml extension, Excel will open
         return Response(data, media_type="application/vnd.ms-excel", headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 

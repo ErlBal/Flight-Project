@@ -62,7 +62,7 @@ def _validate_offer_payload(payload: dict, creating: bool = True):
 
 """ Content (banners & offers) endpoints.
 
-Offers повторяют логику banners: публичный список активных + admin CRUD.
+Offers mirror the banners logic: public list of active items + admin CRUD.
 """
 
 # Public endpoint (banners)

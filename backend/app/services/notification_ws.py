@@ -5,8 +5,8 @@ import json
 import asyncio
 
 class NotificationConnectionManager:
-    """Менеджер WebSocket соединений по email пользователя.
-    Храним множество активных WebSocket на каждого пользователя.
+    """Manager of WebSocket connections per user email.
+    We keep a set of active WebSockets for each user.
     """
     def __init__(self) -> None:
         self._user_sockets: Dict[str, Set[WebSocket]] = {}
@@ -28,7 +28,7 @@ class NotificationConnectionManager:
                     self._user_sockets.pop(email, None)
 
     async def send_to_user(self, email: str, payload: dict):
-        # Отправляем всем подключенным вкладкам пользователя
+        # Send to every open tab/session of the user
         message = json.dumps(payload, ensure_ascii=False)
         async with self._lock:
             conns = list(self._user_sockets.get(email, []))
@@ -36,7 +36,7 @@ class NotificationConnectionManager:
             try:
                 await ws.send_text(message)
             except Exception:
-                # Молча удаляем проблемное соединение
+                # Silently remove the problematic connection
                 await self.disconnect(email, ws)
 
     async def broadcast(self, payload: dict):
@@ -47,7 +47,7 @@ class NotificationConnectionManager:
             try:
                 await ws.send_text(message)
             except Exception:
-                # игнорируем — при следующем цикле будет удалено
+                # Ignore — it will be cleaned up on the next cycle
                 pass
 
 manager = NotificationConnectionManager()

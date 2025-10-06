@@ -24,8 +24,8 @@ def create_access_token(subject: str | Any, roles: list[str], expires_delta: Opt
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    """Декодирование access token без верификации ролей. Бросает исключение jwt.PyJWTError при невалидности.
-    Возвращает payload как dict.
+    """Decode an access token without role verification.
+    Raises jwt.PyJWTError if invalid and returns the payload as a dict.
     """
     payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
     return payload
