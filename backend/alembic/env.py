@@ -41,6 +41,19 @@ DB_URL = os.getenv("DATABASE_URL")
 if not DB_URL:
     raise SystemExit("DATABASE_URL env var is required for migrations (Postgres only setup)")
 
+# If only psycopg (v3) is installed (psycopg[binary]) and URL lacks explicit driver, SQLAlchemy
+# will default to psycopg2 -> ModuleNotFoundError. Mirror logic from runtime session setup.
+try:
+    import importlib.util as _ilu  # type: ignore
+    psycopg2_present = _ilu.find_spec("psycopg2") is not None
+except Exception:  # pragma: no cover
+    psycopg2_present = False
+
+if not psycopg2_present and DB_URL.startswith(("postgres://", "postgresql://")) and "+psycopg" not in DB_URL:
+    if DB_URL.startswith("postgres://"):
+        DB_URL = "postgresql://" + DB_URL[len("postgres://"):]
+    DB_URL = DB_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
 
 def run_migrations_offline():
     url = DB_URL
