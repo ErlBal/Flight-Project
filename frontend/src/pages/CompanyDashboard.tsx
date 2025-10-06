@@ -329,9 +329,14 @@ export default function CompanyDashboard() {
               <label style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'.5px', marginBottom:4 }}>Seats total</label>
               <input className='input' type='number' placeholder='0' value={form.seats_total} onChange={(e:React.ChangeEvent<HTMLInputElement>) => setForm((o: FlightCreateForm) => ({ ...o, seats_total: e.target.value, seats_available: e.target.value }))} min={1} required />
             </div>
-            <div style={{ display:'flex', flexDirection:'column', justifyContent:'flex-end' }}>
-              <button type='submit' disabled={creating} className='btn btn-outline btn-sm' style={{ marginTop:'auto' }}>{creating ? '...' : 'Create'}</button>
-            </div>
+            <button
+              type='submit'
+              disabled={creating}
+              className='btn btn-outline btn-sm'
+              style={{ alignSelf:'end', justifySelf:'start', width:'auto' }}
+            >
+              {creating ? '...' : 'Create'}
+            </button>
           </form>
         </div>
       )}
