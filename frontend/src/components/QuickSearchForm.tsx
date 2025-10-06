@@ -79,8 +79,8 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
         <label style={labelStyle}>Max Price</label>
   <input value={maxPrice} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxPrice(v)}} className="input" style={inputOverride} />
       </div>
-      <div className='qs-cell qs-cell-submit'>
-        <button type="submit" className="btn qs-search-btn" style={{ width:'100%' }}>Search</button>
+            <div className='qs-actions-row'>
+        <button type="submit" className="btn qs-search-btn">Search</button>
       </div>
     </form>
   )
