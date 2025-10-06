@@ -42,6 +42,7 @@ app = FastAPI(title="FlightProject API", version="0.1.0")
 
 # Configurable CORS origins (CORS_ORIGINS env). If empty -> dev defaults.
 origins = settings.cors_origins
+print("[startup] Resolved CORS origins:", origins)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -49,6 +50,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Temporary debug middleware to help diagnose missing CORS header issues in prod.
+# Remove after confirming that the production frontend origin is present.
+from starlette.middleware.base import BaseHTTPMiddleware  # type: ignore
+
+class _OriginDebugMiddleware(BaseHTTPMiddleware):  # pragma: no cover (diagnostic only)
+    async def dispatch(self, request, call_next):
+        origin = request.headers.get("origin")
+        if origin and origin not in origins:
+            print(f"[cors-debug] Incoming Origin '{origin}' not in allowed origins {origins}")
+        return await call_next(request)
+
+app.add_middleware(_OriginDebugMiddleware)
 
 app.include_router(api_router)
 
