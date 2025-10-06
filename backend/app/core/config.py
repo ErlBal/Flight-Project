@@ -55,6 +55,13 @@ class Settings(BaseSettings):
         items = self._parse_list(self.cors_origins_raw)
         # Fallback dev defaults if none provided
         if not items:
+            # If running in prod and nothing configured, allow the known frontend prod domain.
+            if self.env.lower() == "prod":
+                return [
+                    "https://flight-project-omega.vercel.app",
+                    "http://localhost:5173",
+                    "http://127.0.0.1:5173",
+                ]
             return ["http://localhost:5173", "http://127.0.0.1:5173"]
         # Dev convenience: ensure both localhost and 127.0.0.1 variants for same ports
         augmented = set(items)
