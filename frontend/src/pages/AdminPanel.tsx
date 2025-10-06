@@ -42,12 +42,12 @@ export default function AdminPanel() {
       <div className='anim-fade-up-delayed' style={{ position:'relative', minHeight:220 }} ref={containerRef}>
         {/* Leaving (old) content overlay for cross-fade */}
         {leaving && (
-          <div className='glass glass-pad cross-fade-exit' key={'leave-'+leaving}>
+          <div className='glass glass-solid glass-pad cross-fade-exit' key={'leave-'+leaving}>
             <AdminSectionInner tab={leaving} />
           </div>
         )}
         {/* Incoming content */}
-        <div className='glass glass-pad cross-fade-enter' key={'enter-'+tab}>
+        <div className='glass glass-solid glass-pad cross-fade-enter' key={'enter-'+tab}>
           <AdminSectionInner tab={tab} />
         </div>
       </div>

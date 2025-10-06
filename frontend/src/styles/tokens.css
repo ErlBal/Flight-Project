@@ -156,6 +156,7 @@
 /* Glass (frosted) background for readability */
 .glass { background:rgba(255,255,255,0.78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border:1px solid rgba(220,223,227,0.6); border-radius: var(--radius-md); }
 .glass-pad { padding:20px 26px; }
+.glass-solid { background:rgba(255,255,255,0.94); }
 
 /* Normalize native date/datetime-local inputs height to match .input */
 input[type=date], input[type=datetime-local] {
