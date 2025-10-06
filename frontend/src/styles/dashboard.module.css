@@ -6,8 +6,15 @@
 .pagingControls { margin-left:auto; display:flex; align-items:flex-end; gap:8px; }
 .pageInfo { font-size:12px; opacity:.7; }
 .flightsList { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; }
-.flightItem { border:1px solid #ddd; border-radius:8px; padding:10px; background:#fff; transition:background .25s, border-color .25s; }
-.flightPast { background:#f8f9fa; }
+/* Карточка билета + hover подсветка */
+.flightItem { border:1px solid #ddd; border-radius:8px; padding:10px; background:rgba(255,255,255,.75); transition:background .25s, border-color .25s, transform .35s; }
+.flightItem:hover { background:rgba(255,255,255,.92); border-color:#cbd5e1; transform:translateY(-2px); }
+/* Уменьшаем фон для прошедших, но оставляем читаемость */
+.flightPast { background:rgba(248,249,250,.85); }
+/* Анимация появления: применяется индивидуально inline (stagger) */
+@media (prefers-reduced-motion: reduce) {
+	.flightsList .flightItem { animation:none !important; }
+}
 .flightHeader { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; }
 .flightMeta { font-size:12px; opacity:.75; margin-top:4px; }
 .statusBadge { font-size:11px; background:#f1f5f9; padding:2px 6px; border-radius:4px; }

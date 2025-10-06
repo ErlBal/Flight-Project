@@ -106,7 +106,6 @@ export default function Dashboard() {
 
   return (
     <div className={styles.dashboardRoot + ' page-pad'}>
-      <h2>My Flights</h2>
       <Flights
         tickets={tickets}
         reload={loadTickets}
@@ -165,8 +164,10 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
 
   return (
     <div style={{ margin:'12px 0' }}>
-      <h3 style={{ marginTop:0 }}>Flights</h3>
-      <div className={styles.filtersRow}>
+      <div className='glass glass-pad anim-fade-up' style={{ marginBottom:28 }}>
+        <h2 style={{ margin:'0 0 18px' }}>My Flights</h2>
+        <h3 style={{ margin:'0 0 12px' }}>Flights</h3>
+        <div className={styles.filtersRow}>
         <div className={styles.filterGroup}>
           <label className={styles.label}>Confirmation</label>
           <input className="input" value={filterCid} onChange={e=>{ setFilterCid(e.target.value.toUpperCase()); setPage(1) }} placeholder='Start of ID' style={{ padding:'6px 8px', fontSize:13, width:160 }} />
@@ -189,9 +190,11 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
           <span className={styles.pageInfo}>Page {page} / {totalPages}</span>
           <button className="btn btn-outline btn-xs" disabled={page>=totalPages} onClick={()=>setPage(Math.min(totalPages, page+1))}>Next</button>
         </div>
+        </div>
       </div>
-      <ul className={styles.flightsList}>
-        {slice.map(({ t, depTs }) => {
+      <div className='glass glass-pad anim-fade-up-delayed'>
+      <ul className={styles.flightsList} style={{ margin:0 }}>
+  {slice.map(({ t, depTs }, idx) => {
           const msLeft = depTs - Date.now()
           const past = msLeft <= 0
           const hoursLeft = msLeft / 3600000
@@ -203,8 +206,8 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
           return (
             <li
               key={t.confirmation_id}
-              className={itemClass}
-              style={canOpen ? { cursor: 'pointer' } : undefined}
+              className={itemClass + ' anim-fade-up'}
+              style={{ ...(canOpen ? { cursor: 'pointer' } : {}), animationDelay: (0.05 * idx) + 's' }}
               onClick={() => { if (canOpen) setModalTicket(t) }}
               title={canOpen ? 'Click to manage reminders' : undefined}
             >
@@ -230,6 +233,7 @@ function Flights({ tickets, reload, setModalTicket, page, setPage, pageSize, fil
         })}
         {slice.length === 0 && !loading && <li style={{ fontSize:13, opacity:.7 }}>No tickets.</li>}
       </ul>
+      </div>
     </div>
   )
 }
