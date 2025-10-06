@@ -300,7 +300,6 @@ const buyBtn: React.CSSProperties = { fontSize:12, background:'#1d3557', color:'
 const responsiveStyles = `@media (max-width:1400px){ .lp-left-rail, .lp-right-rail{display:none;} .lp-center-main{padding:32px 24px 72px;} } @media (max-width:900px){ .lp-center-main h1{font-size:38px;} }
 @keyframes railFadeIn{0%{opacity:0;transform:translateY(12px);}100%{opacity:1;transform:translateY(0);} }
 @keyframes railSwapIn{0%{opacity:0;transform:scale(.96) translateY(6px);}100%{opacity:1;transform:scale(1) translateY(0);} }
-.
-rail-banner{animation:railFadeIn .6s ease;}
-.rail-rot{animation:railSwapIn .7s cubic-bezier(.16,.8,.24,1);}
+.rail-banner{animation:railFadeIn .5s ease;}
+.rail-rot{animation:railSwapIn .6s cubic-bezier(.16,.8,.24,1);}
 `;

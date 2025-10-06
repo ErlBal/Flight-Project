@@ -117,11 +117,13 @@ export const BannerSlider: React.FC<Props> = ({ autoMs = 6000 }) => {
 
 const wrapperStyle: React.CSSProperties = {
   width: '100%',
-  height: 260,
+  // Reduced height for a less dominant banner area (was 260)
+  height: 90,
   position: 'relative',
   overflow: 'hidden',
   background: '#f1f5f9',
   borderRadius: 8,
+  boxShadow: '0 2px 6px rgba(0,0,0,0.08)'
 }
 
 const slideStyle: React.CSSProperties = {
