@@ -56,10 +56,13 @@ export default function NotificationsBell({ onAnyAction }: Props) {
     // Avoid duplicate
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return
   // Take base API from axios instance to avoid wrong port
+  // Try explicit env override first (allows custom domain separation)
+  const explicit = (import.meta as any).env?.VITE_WS_URL as string | undefined
   const apiBase = (api.defaults.baseURL || window.location.origin).replace(/\/$/, '')
   const wsBase = apiBase.replace(/^http/, 'ws')
-  // WebSocket endpoint shares same prefix as REST (no extra /api)
-  const url = `${wsBase}/notifications/ws/notifications?token=${encodeURIComponent(token)}`
+  // Correct endpoint pattern in backend: /ws/notifications (router.websocket("/ws/notifications"))
+  const fallback = `${wsBase}/ws/notifications?token=${encodeURIComponent(token)}`
+  const url = explicit ? `${explicit}?token=${encodeURIComponent(token)}` : fallback
     const ws = new WebSocket(url)
     wsRef.current = ws
     ws.onopen = () => {
