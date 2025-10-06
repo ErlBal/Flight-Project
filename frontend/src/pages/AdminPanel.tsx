@@ -13,16 +13,12 @@ export default function AdminPanel() {
     <div className="page-pad" style={{ display:'flex', flexDirection:'column', gap:16 }}>
       <h2>Admin Panel</h2>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-  {(['users','companies','stats','banners','offers'] as Tab[]).map(t => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding:'6px 12px',
-            border: '1px solid ' + (tab===t?'#444':'#bbb'),
-            background: tab===t? '#444':'#f8f8f8',
-            color: tab===t? '#fff':'#222',
-            borderRadius:4,
-            cursor:'pointer'
-          }}>{t}</button>
-        ))}
+        {(['users','companies','stats','banners','offers'] as Tab[]).map(t => {
+          const active = tab===t
+          return (
+            <button key={t} onClick={() => setTab(t)} className={active? 'btn btn-sm':'btn btn-outline btn-sm'}>{t}</button>
+          )
+        })}
       </div>
       {tab === 'users' && <UsersSection />}
   {tab === 'companies' && <CompaniesSection />}
@@ -145,28 +141,29 @@ function UsersSection() {
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
         <label style={{ fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
           <span>Company filter:</span>
-          <select value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} disabled={companiesLoading}>
+          <select className='input' style={{ padding:'6px 8px', fontSize:13, height:'auto' }} value={selectedCompany} onChange={e=>setSelectedCompany(e.target.value)} disabled={companiesLoading}>
             <option value=''>All</option>
             {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
-        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+        <button className='btn btn-outline btn-sm' onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
         <label style={{ fontSize:13, display:'flex', alignItems:'center', gap:4 }}>
           <span>Page size:</span>
-          <select value={pageSize} onChange={e=>{ setPageSize(Number(e.target.value)); setPage(1) }} disabled={loading}>
+          <select className='input' style={{ padding:'6px 8px', fontSize:13, height:'auto' }} value={pageSize} onChange={e=>{ setPageSize(Number(e.target.value)); setPage(1) }} disabled={loading}>
             {[10,25,50,100].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </label>
         <div style={{ display:'flex', gap:4, alignItems:'center' }}>
           <input
-            style={{ padding:'4px 6px' }}
+            className='input'
+            style={{ padding:'6px 8px', fontSize:13, height:'auto' }}
             placeholder='Search email or name'
             value={pendingSearch}
             onChange={e=>setPendingSearch(e.target.value)}
             onKeyDown={e=>{ if(e.key==='Enter'){ setSearch(pendingSearch); setPage(1) } }}
           />
-          <button type='button' disabled={loading && search!==pendingSearch} onClick={()=>{ setSearch(pendingSearch); setPage(1) }}>Search</button>
-          {search && <button type='button' onClick={()=>{ setPendingSearch(''); setSearch(''); setPage(1) }} style={{ padding:'4px 6px' }}>×</button>}
+          <button type='button' className='btn btn-sm' disabled={loading && search!==pendingSearch} onClick={()=>{ setSearch(pendingSearch); setPage(1) }}>Search</button>
+          {search && <button type='button' className='btn btn-outline btn-sm' onClick={()=>{ setPendingSearch(''); setSearch(''); setPage(1) }}>×</button>}
         </div>
       </div>
       {loading && <p>Loading...</p>}
@@ -197,7 +194,7 @@ function UsersSection() {
                     <button
                       disabled={actioning[u.id]}
                       onClick={() => toggleActive(u)}
-                      style={{ padding:'4px 10px', fontSize:12 }}
+                      className='btn btn-outline btn-xs'
                     >{actioning[u.id] ? '...' : (u.is_active ? 'Block' : 'Unblock')}</button>
                   </td>
                 </tr>
@@ -207,20 +204,21 @@ function UsersSection() {
         </div>
       )}
       <div style={{ marginTop:12, display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
-        <button disabled={loading || page<=1} onClick={()=> setPage(p=> Math.max(1,p-1))}>Prev</button>
+        <button className='btn btn-outline btn-xs' disabled={loading || page<=1} onClick={()=> setPage(p=> Math.max(1,p-1))}>Prev</button>
         <span style={{ fontSize:13 }}>Page {page} / {pages}</span>
-        <button disabled={loading || page>=pages} onClick={()=> setPage(p=> Math.min(pages,p+1))}>Next</button>
+        <button className='btn btn-outline btn-xs' disabled={loading || page>=pages} onClick={()=> setPage(p=> Math.min(pages,p+1))}>Next</button>
         <span style={{ fontSize:12, opacity:.7 }}>Total: {total}</span>
         <div style={{ display:'flex', gap:4, alignItems:'center' }}>
           <span style={{ fontSize:12 }}>Go to:</span>
           <input
+            className='input'
             value={gotoPage}
             onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setGotoPage(v) }}
             onKeyDown={e=>{ if(e.key==='Enter'){ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n); } }}}
-            style={{ width:60, padding:'4px 6px' }}
+            style={{ width:68, padding:'4px 6px', fontSize:12 }}
             placeholder='№'
           />
-          <button type='button' onClick={()=>{ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n); } }} disabled={!gotoPage || Number(gotoPage)<1 || Number(gotoPage)>pages}>Go</button>
+          <button type='button' className='btn btn-outline btn-xs' onClick={()=>{ const n = Number(gotoPage); if(n>=1 && n<=pages){ setPage(n); } }} disabled={!gotoPage || Number(gotoPage)<1 || Number(gotoPage)>pages}>Go</button>
         </div>
       </div>
     </div>
@@ -292,11 +290,11 @@ function CompaniesSection() {
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
   <h3 style={{ marginTop:0 }}>Companies</h3>
       <form onSubmit={createCompany} style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-        <input placeholder='New company name' value={newName} onChange={e => setNewName(e.target.value)} required />
-        <button type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
+        <input className='input' placeholder='New company name' value={newName} onChange={e => setNewName(e.target.value)} required />
+        <button className='btn btn-sm' type='submit' disabled={creating}>{creating ? '...' : 'Create'}</button>
       </form>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-        <input style={{ minWidth:260 }} placeholder='Assign manager email' value={managerEmail} onChange={e => setManagerEmail(e.target.value)} />
+        <input className='input' style={{ minWidth:260 }} placeholder='Assign manager email' value={managerEmail} onChange={e => setManagerEmail(e.target.value)} />
   <span style={{ fontSize:12, opacity:.7 }}>Enter email then press Assign on a company</span>
       </div>
       {loading && <p>Loading...</p>}
@@ -320,16 +318,16 @@ function CompaniesSection() {
                   <td style={{ ...td, display:'flex', gap:8, flexWrap:'wrap' }}>
                     <button
                       type='button'
+                      className='btn btn-outline btn-xs'
                       disabled={!managerEmail.trim() || assigning[c.id]}
                       onClick={() => assignManager(c.id)}
-                      style={{ padding:'4px 8px', fontSize:12 }}
                     >{assigning[c.id] ? '...' : 'Assign manager'}</button>
                     {c.is_active && (
                       <button
                         type='button'
+                        className='btn btn-outline btn-xs'
                         disabled={deactivating[c.id]}
                         onClick={() => deactivate(c.id)}
-                        style={{ padding:'4px 8px', fontSize:12 }}
                       >{deactivating[c.id] ? '...' : 'Deactivate'}</button>
                     )}
                   </td>
@@ -340,7 +338,7 @@ function CompaniesSection() {
         </div>
       )}
       <div style={{ marginTop:10, display:'flex', gap:8 }}>
-        <button onClick={load} disabled={loading}>Reload</button>
+        <button className='btn btn-outline btn-xs' onClick={load} disabled={loading}>Reload</button>
       </div>
     </div>
   )
@@ -413,16 +411,13 @@ function StatsSection() {
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
       <h3 style={{ marginTop:0 }}>Service Statistics</h3>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-        {(['all','today','week','month'] as const).map(r => (
-          <button key={r} onClick={() => setRange(r)} style={{
-            padding:'4px 10px',
-            border:'1px solid '+(range===r?'#444':'#bbb'),
-            background: range===r?'#444':'#f7f7f7', color: range===r?'#fff':'#222', borderRadius:4
-          }}>{r}</button>
-        ))}
-        <button onClick={() => setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
+        {(['all','today','week','month'] as const).map(r => {
+          const active = range===r
+          return <button key={r} onClick={() => setRange(r)} className={active? 'btn btn-sm' : 'btn btn-outline btn-sm'}>{r}</button>
+        })}
+        <button onClick={() => setRefreshTick(x=>x+1)} disabled={loading} className='btn btn-outline btn-sm'>Reload</button>
         <div style={{ display:'flex', gap:4 }}>
-          <button type='button' disabled={loading} onClick={async ()=>{
+          <button type='button' className='btn btn-outline btn-xs' disabled={loading} onClick={async ()=>{
             try {
               const r = await api.get('/admin/stats/export', { params:{ range, fmt:'csv' }, responseType:'blob' })
               const blob = new Blob([r.data], { type:'text/csv' })
@@ -430,7 +425,7 @@ function StatsSection() {
               const a = document.createElement('a'); a.href=url; a.download=`service_stats_${range}.csv`; a.click(); URL.revokeObjectURL(url)
             } catch {}
           }}>Export CSV</button>
-          <button type='button' disabled={loading} onClick={async ()=>{
+          <button type='button' className='btn btn-outline btn-xs' disabled={loading} onClick={async ()=>{
             try {
               const r = await api.get('/admin/stats/export', { params:{ range, fmt:'xlsx' }, responseType:'blob' })
               const blob = new Blob([r.data], { type:'application/vnd.ms-excel' })
@@ -442,13 +437,11 @@ function StatsSection() {
       </div>
       <div style={{ marginBottom:12, display:'flex', flexWrap:'wrap', gap:8 }}>
         <span style={{ fontSize:12, opacity:.7 }}>Метрики для графиков:</span>
-        {['passengers','revenue','flights','seats_sold','seats_capacity','load_factor'].map(m => (
-          <button key={m} type='button' onClick={()=>toggleMetric(m)} style={{
-            padding:'3px 8px', fontSize:11, border:'1px solid '+(selectedMetrics.includes(m)?'#1d3557':'#bbb'),
-            background:selectedMetrics.includes(m)?'#1d3557':'#f1f5f9', color:selectedMetrics.includes(m)?'#fff':'#1e293b', borderRadius:14
-          }}>{m}</button>
-        ))}
-        <button type='button' onClick={()=>setRefreshTick(x=>x+1)} disabled={seriesLoading} style={{ padding:'3px 10px', fontSize:11 }}>Refresh series</button>
+        {['passengers','revenue','flights','seats_sold','seats_capacity','load_factor'].map(m => {
+          const active = selectedMetrics.includes(m)
+          return <button key={m} type='button' onClick={()=>toggleMetric(m)} className={active? 'btn btn-xs':'btn btn-outline btn-xs'}>{m}</button>
+        })}
+        <button type='button' onClick={()=>setRefreshTick(x=>x+1)} disabled={seriesLoading} className='btn btn-outline btn-xs'>Refresh series</button>
       </div>
       {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
@@ -614,21 +607,21 @@ function BannersSection() {
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
       <h3 style={{ marginTop:0 }}>Banners</h3>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Reload</button>
-        {!creating && <button onClick={startCreate}>New banner</button>}
-        {creating && <button onClick={reset} type='button'>Cancel</button>}
+        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading} className='btn btn-outline btn-sm'>Reload</button>
+        {!creating && <button onClick={startCreate} className='btn btn-sm'>New banner</button>}
+        {creating && <button onClick={reset} type='button' className='btn btn-outline btn-sm'>Cancel</button>}
       </div>
       {creating && (
         <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20, maxWidth:520 }}>
-          <input placeholder='Title *' value={form.title} onChange={e=>setForm(f=>({ ...f, title:e.target.value }))} required />
-          <input placeholder='Image URL' value={form.image_url} onChange={e=>setForm(f=>({ ...f, image_url:e.target.value }))} />
-          <input placeholder='Link URL' value={form.link_url} onChange={e=>setForm(f=>({ ...f, link_url:e.target.value }))} />
-          <input placeholder='Position (number)' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, position:v })) }} />
+          <input className='input' placeholder='Title *' value={form.title} onChange={e=>setForm(f=>({ ...f, title:e.target.value }))} required />
+          <input className='input' placeholder='Image URL' value={form.image_url} onChange={e=>setForm(f=>({ ...f, image_url:e.target.value }))} />
+          <input className='input' placeholder='Link URL' value={form.link_url} onChange={e=>setForm(f=>({ ...f, link_url:e.target.value }))} />
+          <input className='input' placeholder='Position (number)' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm(f=>({ ...f, position:v })) }} />
           <label style={{ display:'flex', gap:6, fontSize:14 }}>
             <input type='checkbox' checked={form.is_active} onChange={e=>setForm(f=>({ ...f, is_active:e.target.checked }))} /> Active
           </label>
           <div style={{ display:'flex', gap:8 }}>
-            <button type='submit' disabled={saving}>{saving? '...' : (editingId? 'Update' : 'Create')}</button>
+            <button type='submit' disabled={saving} className='btn btn-sm'>{saving? '...' : (editingId? 'Update' : 'Create')}</button>
           </div>
         </form>
       )}
@@ -659,9 +652,9 @@ function BannersSection() {
                   <td style={td}>{b.is_active? 'Yes':'No'}</td>
                   <td style={td}>{b.position ?? ''}</td>
                   <td style={{ ...td, display:'flex', gap:6, flexWrap:'wrap' }}>
-                    <button type='button' onClick={()=>startEdit(b)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
-                    <button type='button' onClick={()=>toggleActive(b)} style={{ padding:'4px 8px', fontSize:12 }}>{b.is_active? 'Deactivate' :'Activate'}</button>
-                    <button type='button' disabled={deleting[b.id]} onClick={()=>remove(b)} style={{ padding:'4px 8px', fontSize:12 }}>{deleting[b.id]? '...':'Delete'}</button>
+                    <button type='button' onClick={()=>startEdit(b)} className='btn btn-outline btn-xs'>Edit</button>
+                    <button type='button' onClick={()=>toggleActive(b)} className='btn btn-outline btn-xs'>{b.is_active? 'Deactivate' :'Activate'}</button>
+                    <button type='button' disabled={deleting[b.id]} onClick={()=>remove(b)} className='btn btn-outline btn-xs'>{deleting[b.id]? '...':'Delete'}</button>
                   </td>
                 </tr>
               ))}
@@ -805,9 +798,9 @@ function OffersSection() {
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
       <h3 style={{ marginTop:0 }}>Offers</h3>
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
-        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading}>Refresh</button>
-        <button onClick={openCreate}>New offer</button>
-        <button onClick={normalizePositions} disabled={normalizing || loading}>{normalizing? '...' : 'Normalize order'}</button>
+        <button onClick={()=>setRefreshTick(x=>x+1)} disabled={loading} className='btn btn-outline btn-sm'>Refresh</button>
+        <button onClick={openCreate} className='btn btn-sm'>New offer</button>
+        <button onClick={normalizePositions} disabled={normalizing || loading} className='btn btn-outline btn-sm'>{normalizing? '...' : 'Normalize order'}</button>
       </div>
       {loading && <p>Loading...</p>}
       {error && <p style={{ color:'red' }}>{error}</p>}
@@ -844,15 +837,15 @@ function OffersSection() {
                   <td style={td}>{o.is_active? 'Yes':'No'}</td>
                   <td style={{ ...td, whiteSpace:'nowrap', fontSize:12 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                      <button title='Move up' disabled={positionUpdating[o.id]} onClick={()=>updatePosition(o,-1)} style={{ padding:'2px 6px' }}>▲</button>
-                      <button title='Move down' disabled={positionUpdating[o.id]} onClick={()=>updatePosition(o,1)} style={{ padding:'2px 6px' }}>▼</button>
+                      <button title='Move up' disabled={positionUpdating[o.id]} onClick={()=>updatePosition(o,-1)} className='btn btn-outline btn-xs' style={{ padding:'2px 6px' }}>▲</button>
+                      <button title='Move down' disabled={positionUpdating[o.id]} onClick={()=>updatePosition(o,1)} className='btn btn-outline btn-xs' style={{ padding:'2px 6px' }}>▼</button>
                       <span style={{ opacity:.7 }}>#{o.position ?? 0}</span>
                     </div>
                   </td>
                   <td style={{ ...td, display:'flex', gap:6, flexWrap:'wrap' }}>
-                    <button type='button' onClick={()=>openEdit(o)} style={{ padding:'4px 8px', fontSize:12 }}>Edit</button>
-                    <button type='button' onClick={()=>toggleActive(o)} style={{ padding:'4px 8px', fontSize:12 }}>{o.is_active? 'Deactivate':'Activate'}</button>
-                    <button type='button' disabled={deleting[o.id]} onClick={()=>remove(o)} style={{ padding:'4px 8px', fontSize:12 }}>{deleting[o.id]? '...':'Delete'}</button>
+                    <button type='button' onClick={()=>openEdit(o)} className='btn btn-outline btn-xs'>Edit</button>
+                    <button type='button' onClick={()=>toggleActive(o)} className='btn btn-outline btn-xs'>{o.is_active? 'Deactivate':'Activate'}</button>
+                    <button type='button' disabled={deleting[o.id]} onClick={()=>remove(o)} className='btn btn-outline btn-xs'>{deleting[o.id]? '...':'Delete'}</button>
                   </td>
                 </tr>
               ))}
@@ -866,26 +859,26 @@ function OffersSection() {
           <div style={modalBox}>
             <h4 style={{ margin:'0 0 12px' }}>{editingId? 'Edit offer':'New offer'}</h4>
             <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              <input placeholder='Title *' value={form.title} onChange={e=>setForm((f:any)=>({ ...f, title:e.target.value }))} required />
-              <input placeholder='Subtitle' value={form.subtitle} onChange={e=>setForm((f:any)=>({ ...f, subtitle:e.target.value }))} />
-              <input placeholder='Price from' value={form.price_from} onChange={e=>{ const v=e.target.value; if(/^[0-9]*\.?[0-9]*$/.test(v)) setForm((f:any)=>({ ...f, price_from:v })) }} />
+              <input className='input' placeholder='Title *' value={form.title} onChange={e=>setForm((f:any)=>({ ...f, title:e.target.value }))} required />
+              <input className='input' placeholder='Subtitle' value={form.subtitle} onChange={e=>setForm((f:any)=>({ ...f, subtitle:e.target.value }))} />
+              <input className='input' placeholder='Price from' value={form.price_from} onChange={e=>{ const v=e.target.value; if(/^[0-9]*\.?[0-9]*$/.test(v)) setForm((f:any)=>({ ...f, price_from:v })) }} />
               {/* Flight ref builder */}
               {form.mode === 'interactive' && (
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                    <input
+                    <input className='input'
                       placeholder='Origin (AAA)'
                       value={form._origin || ''}
                       onChange={e=>{ const v=e.target.value.toUpperCase(); setForm((f:any)=>({ ...f, _origin:v.replace(/[^A-Z]/g,'').slice(0,3) })); }}
                       style={{ width:100 }}
                     />
-                    <input
+                    <input className='input'
                       placeholder='Destination (BBB)'
                       value={form._destination || ''}
                       onChange={e=>{ const v=e.target.value.toUpperCase(); setForm((f:any)=>({ ...f, _destination:v.replace(/[^A-Z]/g,'').slice(0,3) })); }}
                       style={{ width:120 }}
                     />
-                    <input
+                    <input className='input'
                       type='date'
                       value={form._date || ''}
                       onChange={e=> setForm((f:any)=>({ ...f, _date:e.target.value })) }
@@ -905,16 +898,16 @@ function OffersSection() {
                 </div>
               )}
               {form.mode !== 'interactive' && (
-                <input placeholder='Flight ref (AAA / AAA-BBB / AAA-BBB@YYYY-MM-DD)' value={form.flight_ref} onChange={e=>setForm((f:any)=>({ ...f, flight_ref:e.target.value.toUpperCase() }))} />
+                <input className='input' placeholder='Flight ref (AAA / AAA-BBB / AAA-BBB@YYYY-MM-DD)' value={form.flight_ref} onChange={e=>setForm((f:any)=>({ ...f, flight_ref:e.target.value.toUpperCase() }))} />
               )}
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 <label style={{ fontSize:12 }}>Tag:
-                  <select value={form.tag} onChange={e=>setForm((f:any)=>({ ...f, tag:e.target.value }))} style={{ marginLeft:6 }}>
+                  <select className='input' value={form.tag} onChange={e=>setForm((f:any)=>({ ...f, tag:e.target.value }))} style={{ marginLeft:6, padding:'6px 8px' }}>
                     {TAG_OPTIONS.map(t => <option key={t} value={t}>{t||'(none)'}</option>)}
                   </select>
                 </label>
                 <label style={{ fontSize:12 }}>Mode:
-                  <select value={form.mode} onChange={e=>setForm((f:any)=>({ ...f, mode:e.target.value }))} style={{ marginLeft:6 }}>
+                  <select className='input' value={form.mode} onChange={e=>setForm((f:any)=>({ ...f, mode:e.target.value }))} style={{ marginLeft:6, padding:'6px 8px' }}>
                     <option value='interactive'>interactive</option>
                     <option value='info'>info</option>
                   </select>
@@ -924,15 +917,15 @@ function OffersSection() {
                 </label>
               </div>
               {form.mode === 'info' && (
-                <textarea placeholder='Description (tooltip)' value={form.description} onChange={e=>setForm((f:any)=>({ ...f, description:e.target.value }))} style={{ minHeight:80 }} />
+                <textarea className='input' placeholder='Description (tooltip)' value={form.description} onChange={e=>setForm((f:any)=>({ ...f, description:e.target.value }))} style={{ minHeight:80 }} />
               )}
-              <input placeholder='Position' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm((f:any)=>({ ...f, position:v })) }} />
+              <input className='input' placeholder='Position' value={form.position} onChange={e=>{ const v=e.target.value; if(/^[0-9]*$/.test(v)) setForm((f:any)=>({ ...f, position:v })) }} />
               {editingId && (
                 <div style={{ fontSize:12, opacity:.7 }}>Clicks: {offers.find(o=>o.id===editingId)?.click_count ?? 0}</div>
               )}
               <div style={{ display:'flex', gap:8, marginTop:4 }}>
-                <button type='submit' disabled={saving}>{saving? '...' : (editingId? 'Update':'Create')}</button>
-                <button type='button' onClick={closeModal} disabled={saving}>Cancel</button>
+                <button type='submit' disabled={saving} className='btn btn-sm'>{saving? '...' : (editingId? 'Update':'Create')}</button>
+                <button type='button' onClick={closeModal} disabled={saving} className='btn btn-outline btn-sm'>Cancel</button>
               </div>
             </form>
           </div>

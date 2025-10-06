@@ -116,7 +116,7 @@
 
 /* Badges */
 .badge { display:inline-flex; align-items:center; line-height:1.1; font-weight:500; font-size:11px; padding:2px 8px; border-radius:20px; border:1px solid var(--color-border); background: var(--color-bg-muted); color: var(--color-text-soft); }
-.badge-company { background: var(--color-accent2-bg); border-color: var(--color-accent2); color: var(--color-accent2-active); }
+.badge-company { background: var(--color-bg-muted); border-color: var(--color-border-strong); color: var(--color-text-soft); }
 
 /* Subtle link using secondary accent */
 .link-accent2 { color: var(--color-accent2); text-decoration:none; font-weight:500; }
