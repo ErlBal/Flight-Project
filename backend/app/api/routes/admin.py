@@ -187,17 +187,17 @@ def service_stats_series(
     limit_days: int = Query(180, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
-        """Return a time series of service metrics aggregated by day.
+    """Return a time series of service metrics aggregated by day.
 
-        Parameters:
-            range: all|today|week|month (all = entire history but limited by limit_days)
-            metrics: comma separated list of metrics (passengers,revenue,flights,seats_sold,seats_capacity,load_factor)
-            granularity: currently only 'day' is supported
-            limit_days: maximum length of the series for range=all
+    Parameters:
+        range: all|today|week|month (all = entire history but limited by limit_days)
+        metrics: comma separated list of metrics (passengers,revenue,flights,seats_sold,seats_capacity,load_factor)
+        granularity: currently only 'day' is supported
+        limit_days: maximum length of the series for range=all
 
-        Response format:
-            { range, granularity, metrics:[...], points:[ { date:'YYYY-MM-DD', values:{metric: value,...}} ] }
-        """
+    Response format:
+        { range, granularity, metrics:[...], points:[ { date:'YYYY-MM-DD', values:{metric: value,...}} ] }
+    """
     if granularity != "day":
         raise HTTPException(status_code=400, detail="only 'day' granularity supported")
 
@@ -275,10 +275,10 @@ def service_stats_series(
     flights_rows = flights_q.group_by(func.date(Flight.departure)).all()
     flights_map = {str(r.d): r for r in flights_rows}
 
-    # Построим шкалу дней
+    # Build list of days
     days = []
     cursor = start_day
-    # включительно до end_day
+    # Inclusive up to end day
     while cursor.date() <= end.date():
         days.append(cursor.strftime("%Y-%m-%d"))
         cursor = cursor + timedelta(days=1)

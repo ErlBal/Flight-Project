@@ -14,7 +14,7 @@ interface Props {
   onAnyAction?: () => void
 }
 
-// Небольшой компонент колокольчика уведомлений
+// Small notifications bell component
 export default function NotificationsBell({ onAnyAction }: Props) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<NotificationItem[]>([])
@@ -34,7 +34,7 @@ export default function NotificationsBell({ onAnyAction }: Props) {
       const unread = (r.data || []).filter((x: NotificationItem) => !x.read).length
       setUnreadCount(unread)
     } catch (e: any) {
-      setError(extractErrorMessage(e?.response?.data) || 'Ошибка загрузки')
+  setError(extractErrorMessage(e?.response?.data) || 'Load error')
     } finally { setLoading(false) }
   }
 
@@ -42,7 +42,7 @@ export default function NotificationsBell({ onAnyAction }: Props) {
     try {
       const r = await api.get('/notifications/unread-count')
       setUnreadCount(r.data?.unread || 0)
-    } catch { /* тихо */ }
+  } catch { /* silent */ }
   }
 
   // --- WebSocket real-time ---
@@ -55,10 +55,10 @@ export default function NotificationsBell({ onAnyAction }: Props) {
     if (!token) return
     // Avoid duplicate
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) return
-  // Берём base API из axios инстанса, чтобы не ошибиться портом
+  // Take base API from axios instance to avoid wrong port
   const apiBase = (api.defaults.baseURL || window.location.origin).replace(/\/$/, '')
   const wsBase = apiBase.replace(/^http/, 'ws')
-  // Наш websocket endpoint смонтирован по тому же префиксу что и REST (без дополнительного /api если его нет в baseURL)
+  // WebSocket endpoint shares same prefix as REST (no extra /api)
   const url = `${wsBase}/notifications/ws/notifications?token=${encodeURIComponent(token)}`
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -70,13 +70,13 @@ export default function NotificationsBell({ onAnyAction }: Props) {
         const payload = JSON.parse(ev.data)
         if (payload?.type === 'notification' && payload.data) {
           setItems(prev => {
-            // Защита от дублей по id
+            // De-duplicate by id
             if (prev.find(p => p.id === payload.data.id)) return prev
             return [payload.data, ...prev].slice(0, 200)
           })
           if (!payload.data.read) setUnreadCount(c => c + 1)
         } else if (payload?.type === 'flight_seats' && payload.data) {
-          // Глобальное событие для других компонентов
+          // Global event for other components
             window.dispatchEvent(new CustomEvent('flight_seats_update', { detail: payload.data }))
         } else if (payload?.type === 'notification_read' && payload.data) {
             setItems(prev => prev.map(i => i.id === payload.data.id ? { ...i, read: true } : i))
@@ -97,7 +97,7 @@ export default function NotificationsBell({ onAnyAction }: Props) {
 
   const scheduleReconnect = () => {
     if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current)
-    if (reconnectAttempts.current > 6) return // ~ограничение
+  if (reconnectAttempts.current > 6) return // limit
     const delay = Math.min(10000, 1000 * Math.pow(2, reconnectAttempts.current))
     reconnectAttempts.current += 1
     reconnectTimer.current = window.setTimeout(setupWebSocket, delay)
@@ -130,14 +130,14 @@ export default function NotificationsBell({ onAnyAction }: Props) {
     } catch {/* ignore */} finally { setMarkingAll(false) }
   }
 
-  // Поллинг только счётчика
+  // Poll only the unread counter
   useEffect(() => {
     loadCount()
     pollingRef.current = window.setInterval(loadCount, 30000) // 30s
     return () => { if (pollingRef.current) window.clearInterval(pollingRef.current) }
   }, [])
 
-  // Клик вне — закрыть
+  // Outside click -> close popup
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (open && containerRef.current && !containerRef.current.contains(e.target as any)) {
@@ -157,7 +157,7 @@ export default function NotificationsBell({ onAnyAction }: Props) {
 
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
-      <button onClick={toggleOpen} className="icon-btn" aria-label='Уведомления' title='Уведомления' style={{ width:38 }}>
+  <button onClick={toggleOpen} className="icon-btn" aria-label='Notifications' title='Notifications' style={{ width:38 }}>
         <span style={{ fontSize:14, fontFamily:'inherit', lineHeight:1 }}>✉</span>
         {unreadCount > 0 && (
           <span className='icon-btn-badge'>{unreadCount}</span>
@@ -166,15 +166,15 @@ export default function NotificationsBell({ onAnyAction }: Props) {
       {open && (
   <div style={{ position: 'absolute', right: 0, top: '110%', width: 380, maxHeight: 420, overflow: 'auto', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 8, boxShadow: 'var(--shadow-md)', zIndex: 50, fontSize: 13 }}>
           <div style={{ display: 'flex', alignItems: 'center', padding: '6px 10px', borderBottom: '1px solid #eee', gap: 8 }}>
-            <strong style={{ fontSize: 14 }}>Уведомления</strong>
+            <strong style={{ fontSize: 14 }}>Notifications</strong>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-              <button onClick={markAll} disabled={markingAll || unreadCount === 0} className='btn btn-outline' style={{ fontSize: 12, padding:'4px 10px' }}>{markingAll ? '...' : 'Прочитать все'}</button>
+              <button onClick={markAll} disabled={markingAll || unreadCount === 0} className='btn btn-outline' style={{ fontSize: 12, padding:'4px 10px' }}>{markingAll ? '...' : 'Mark all read'}</button>
               <button onClick={loadList} disabled={loading} className='btn btn-outline' style={{ fontSize: 12, padding:'4px 10px' }}>↻</button>
             </div>
           </div>
           {error && <div style={{ color: 'red', padding: '6px 10px' }}>{error}</div>}
-          {loading && <div style={{ padding: '6px 10px' }}>Загрузка...</div>}
-          {!loading && items.length === 0 && <div style={{ padding: '10px' }}>Нет уведомлений</div>}
+          {loading && <div style={{ padding: '6px 10px' }}>Loading...</div>}
+          {!loading && items.length === 0 && <div style={{ padding: '10px' }}>No notifications</div>}
           {!loading && items.map(n => (
             <div key={n.id} style={{ padding: '8px 10px', borderBottom: '1px solid #f0f0f0', background: n.read ? '#fafafa' : '#eef6ff', display: 'flex', gap: 8 }}>
               <div style={{ flex: 1 }}>
