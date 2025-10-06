@@ -61,8 +61,8 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
   return (
     <form onSubmit={handleSubmit} style={formStyle} className="qs-search-grid">
       <style>{quickSearchResponsiveCss}</style>
-  <div className='qs-cell qs-cell-country'><CountryInput label='Origin' value={origin} onChange={setOrigin} /></div>
-  <div className='qs-cell qs-cell-country'><CountryInput label='Destination' value={destination} onChange={setDestination} /></div>
+  <div className='qs-cell'><CountryInput label='Origin' value={origin} onChange={setOrigin} /></div>
+  <div className='qs-cell'><CountryInput label='Destination' value={destination} onChange={setDestination} /></div>
       <div style={{ ...fieldCol }} className='qs-cell'> 
         <label style={labelStyle}>Date</label>
   <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" style={inputOverride} />
@@ -79,7 +79,7 @@ export const QuickSearchForm: React.FC<Props> = ({ onSearch }) => {
         <label style={labelStyle}>Max Price</label>
   <input value={maxPrice} onChange={e=>{const v=e.target.value; if(/^[0-9]*$/.test(v)) setMaxPrice(v)}} className="input" style={inputOverride} />
       </div>
-            <div className='qs-actions-row'>
+      <div className='qs-actions-row'>
         <button type="submit" className="btn qs-search-btn">Search</button>
       </div>
     </form>
@@ -121,9 +121,8 @@ const submitBtnOverride: React.CSSProperties = { fontSize:14 }
 
 // CSS для адаптива: при ширине < 780px разрешаем перенос.
 const quickSearchResponsiveCss = `
-.qs-search-grid .qs-cell-country { min-height:118px; display:flex; flex-direction:column; justify-content:flex-start; }
-.qs-search-grid .qs-cell-submit { display:flex; flex-direction:column; justify-content:flex-end; }
-.qs-search-grid .qs-search-btn { padding:10px 26px; font-size:15px; font-weight:600; border-radius:24px; height:48px; }
+.qs-search-grid .qs-actions-row { grid-column: 1 / -1; display:flex; justify-content:center; margin-top:4px; }
+.qs-search-grid .qs-search-btn { padding:10px 26px; font-size:15px; font-weight:600; border-radius:24px; }
 .qs-search-grid .qs-cell input { width:100%; }
 @media (max-width:900px){ .qs-search-grid { grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); } }
 @media (max-width:640px){ .qs-search-grid { grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); padding:18px 18px 24px; } }
