@@ -358,10 +358,21 @@ def deactivate_company(company_id: int, db: Session = Depends(get_db)):
     c.is_active = False
     # Unassign all managers linked to this company
     links = db.query(CompanyManager).filter(CompanyManager.company_id == c.id).all()
+    affected_user_ids = {l.user_id for l in links}
     removed = 0
     for l in links:
         db.delete(l)
         removed += 1
+    # Downgrade managers who have no remaining assignments
+    if affected_user_ids:
+        still_linked = db.query(CompanyManager.user_id).filter(CompanyManager.user_id.in_(affected_user_ids)).distinct().all()
+        still_ids = {row[0] for row in still_linked}
+        to_downgrade = affected_user_ids - still_ids
+        if to_downgrade:
+            users = db.query(User).filter(User.id.in_(to_downgrade)).all()
+            for u in users:
+                if u.role == 'company_manager':
+                    u.role = 'user'
     db.commit()
     return {"status": "ok", "unassigned_managers": removed}
 
@@ -380,10 +391,25 @@ def delete_company(company_id: int, db: Session = Depends(get_db)):
     if not c:
         return {"error": "not found"}
     if c.is_active:
-        return {"error": "company must be deactivated first"}
-    # Remove any lingering links just in case
+        # Auto-deactivate to simplify flow
+        c.is_active = False
+    # Collect affected manager ids before deletion
+    links = db.query(CompanyManager).filter(CompanyManager.company_id == c.id).all()
+    affected_user_ids = {l.user_id for l in links}
+    # Remove links
     db.query(CompanyManager).filter(CompanyManager.company_id == c.id).delete(synchronize_session=False)
+    # Delete company
     db.delete(c)
+    # Downgrade any managers with no remaining companies
+    if affected_user_ids:
+        still_linked = db.query(CompanyManager.user_id).filter(CompanyManager.user_id.in_(affected_user_ids)).distinct().all()
+        still_ids = {row[0] for row in still_linked}
+        to_downgrade = affected_user_ids - still_ids
+        if to_downgrade:
+            users = db.query(User).filter(User.id.in_(to_downgrade)).all()
+            for u in users:
+                if u.role == 'company_manager':
+                    u.role = 'user'
     db.commit()
     return {"status": "deleted"}
 

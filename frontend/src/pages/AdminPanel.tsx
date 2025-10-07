@@ -284,6 +284,7 @@ function CompaniesSection() {
   const [managerEmail, setManagerEmail] = useState('')
   const [assigning, setAssigning] = useState<Record<number, boolean>>({})
   const [deactivating, setDeactivating] = useState<Record<number, boolean>>({})
+  const [deleting, setDeleting] = useState<Record<number, boolean>>({})
   const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => { load() }, [refreshTick])
@@ -333,6 +334,21 @@ function CompaniesSection() {
     } finally { setDeactivating(d => ({ ...d, [companyId]: false })) }
   }
 
+  const deleteCompany = async (companyId:number, isActive:boolean) => {
+    if (isActive) {
+      if(!confirm('Company is active. Delete will auto-deactivate and remove all manager links. Proceed?')) return
+    } else {
+      if(!confirm('Delete this company? This action cannot be undone.')) return
+    }
+    setDeleting(d => ({ ...d, [companyId]: true }))
+    try {
+      await api.delete(`/admin/companies/${companyId}`)
+      setRefreshTick(x=>x+1)
+    } catch(e:any){
+      alert(extractErrorMessage(e?.response?.data) || 'Delete failed')
+    } finally { setDeleting(d => ({ ...d, [companyId]: false })) }
+  }
+
   return (
     <div style={{ border:'1px solid #ddd', borderRadius:6, padding:12 }}>
   <h3 style={{ marginTop:0 }}>Companies</h3>
@@ -377,6 +393,13 @@ function CompaniesSection() {
                         onClick={() => deactivate(c.id)}
                       >{deactivating[c.id] ? '...' : 'Deactivate'}</button>
                     )}
+                    <button
+                      type='button'
+                      className='btn btn-outline btn-xs'
+                      style={{ borderColor:'#f99', color:'#b00' }}
+                      disabled={deleting[c.id]}
+                      onClick={()=>deleteCompany(c.id, c.is_active)}
+                    >{deleting[c.id] ? '...' : 'Delete'}</button>
                   </td>
                 </tr>
               ))}
@@ -881,7 +904,7 @@ function OffersSection() {
                   <td style={td}>{o.tag || '—'}</td>
                   <td style={td}>{o.mode || 'interactive'}</td>
                   <td style={td}>{o.click_count ?? 0}</td>
-                  <td style={td}>{o.is_active? 'Yes':'No'}</td>
+                  <td style={td}>{o.is_active? 'Yes' : 'No'}</td>
                   <td style={{ ...td, whiteSpace:'nowrap', fontSize:12 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:4 }}>
                       <button title='Move up' disabled={positionUpdating[o.id]} onClick={()=>updatePosition(o,-1)} className='btn btn-outline btn-xs' style={{ padding:'2px 6px' }}>▲</button>
@@ -891,7 +914,7 @@ function OffersSection() {
                   </td>
                   <td style={{ ...td, display:'flex', gap:6, flexWrap:'wrap' }}>
                     <button type='button' onClick={()=>openEdit(o)} className='btn btn-outline btn-xs'>Edit</button>
-                    <button type='button' onClick={()=>toggleActive(o)} className='btn btn-outline btn-xs'>{o.is_active? 'Deactivate':'Activate'}</button>
+                    <button type='button' onClick={()=>toggleActive(o)} className='btn btn-outline btn-xs'>{o.is_active? 'Deactivate' :'Activate'}</button>
                     <button type='button' disabled={deleting[o.id]} onClick={()=>remove(o)} className='btn btn-outline btn-xs'>{deleting[o.id]? '...':'Delete'}</button>
                   </td>
                 </tr>
