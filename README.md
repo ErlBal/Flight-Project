@@ -7,7 +7,6 @@ https://flight-project-omega.vercel.app
 ### YouTube link
 https://youtu.be/M22cENFLSK8
 
-Domain: airline ticketing (flights, tickets, companies, notifications).
 
 ### Repository Structure
 - `backend/` FastAPI application (Python 3.11, SQLAlchemy 2, Alembic, JWT)
