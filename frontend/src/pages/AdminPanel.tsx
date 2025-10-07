@@ -393,13 +393,16 @@ function CompaniesSection() {
                         onClick={() => deactivate(c.id)}
                       >{deactivating[c.id] ? '...' : 'Deactivate'}</button>
                     )}
-                    <button
-                      type='button'
-                      className='btn btn-outline btn-xs'
-                      style={{ borderColor:'#f99', color:'#b00' }}
-                      disabled={deleting[c.id]}
-                      onClick={()=>deleteCompany(c.id, c.is_active)}
-                    >{deleting[c.id] ? '...' : 'Delete'}</button>
+                    {/* Delete button temporarily hidden */}
+                    {false && (
+                      <button
+                        type='button'
+                        className='btn btn-outline btn-xs'
+                        style={{ borderColor:'#f99', color:'#b00' }}
+                        disabled={deleting[c.id]}
+                        onClick={()=>deleteCompany(c.id, c.is_active)}
+                      >{deleting[c.id] ? '...' : 'Delete'}</button>
+                    )}
                   </td>
                 </tr>
               ))}
