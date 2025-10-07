@@ -55,7 +55,7 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
         const items: Offer[] = r.data || []
         setOffers(limit ? items.slice(0, limit) : items)
       })
-      .catch(() => setError('Не удалось загрузить предложения'))
+      .catch(() => setError('Failed to load offers'))
       .finally(() => setLoading(false))
   }, [limit])
 
@@ -92,7 +92,7 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
     )
   }
   if (error) return <div>{error}</div>
-  if (!offers.length) return <div>Нет активных предложений</div>
+  if (!offers.length) return <div>No active offers</div>
 
   return (
 	<div style={gridFixed3} className='offers-grid-3'>
@@ -152,9 +152,9 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
               )}
             </div>
             {o.price_from != null && (
-              <span style={priceFixedSpan}>от <strong>${o.price_from}</strong></span>
+              <span style={priceFixedSpan}>from <strong>${o.price_from}</strong></span>
             )}
-            {interactive && o.flight_ref && <span style={searchFixedBtn}>Поиск</span>}
+            {interactive && o.flight_ref && <span style={searchFixedBtn}>Search</span>}
             {o.mode === 'info' && o.description && hovered === o.id && (
               <div style={tooltipBox}>{o.description}</div>
             )}
@@ -162,10 +162,10 @@ export const OffersGrid: React.FC<Props> = ({ limit = 9, onActivateOffer }) => {
         )
       })}
       {offers.length > (limit||9) && !showAll && (
-        <button style={showAllButton} onClick={()=>setShowAll(true)}>Все</button>
+        <button style={showAllButton} onClick={()=>setShowAll(true)}>All</button>
       )}
       {offers.length > (limit||9) && showAll && (
-        <button style={showAllButton} onClick={()=>setShowAll(false)}>Свернуть</button>
+        <button style={showAllButton} onClick={()=>setShowAll(false)}>Collapse</button>
       )}
     </div>
   )

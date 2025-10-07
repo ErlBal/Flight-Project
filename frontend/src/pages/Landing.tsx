@@ -197,8 +197,8 @@ export default function Landing() {
           <section style={{ marginTop: 56 }}>
             <div className='glass glass-pad anim-fade-up-long' style={{ marginBottom:24 }}>
               <div style={sectionHeaderRow}>
-                <h2 style={sectionTitle} className='text-contrast'>Предложения</h2>
-                <a href='/?date=' style={smallLink}>Сбросить поиск</a>
+                <h2 style={sectionTitle} className='text-contrast'>Offers</h2>
+                <a href='/?date=' style={smallLink}>Reload</a>
               </div>
               <OffersGrid
               limit={6}
