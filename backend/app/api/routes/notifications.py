@@ -71,7 +71,7 @@ def mark_all_read(db: Session = Depends(get_db), identity=Depends(get_current_id
 
 
 @router.websocket("/ws/notifications")
-async def websocket_notifications(websocket: WebSocket, token: str = Query(...)):
+async def websocket_notifications(websocket: WebSocket, token: str | None = Query(None)):
     """WebSocket для мгновенных уведомлений.
     Клиент передаёт access token в query (?token=...). Мы декодируем email.
     Сообщения сервер шлёт в формате:
@@ -80,7 +80,14 @@ async def websocket_notifications(websocket: WebSocket, token: str = Query(...))
     """
     # Попытка декодировать токен
     logger = logging.getLogger("notifications.ws")
+    # Accept token either from query (?token=) or Authorization header (Bearer ...)
+    if not token:
+        auth_header = websocket.headers.get("authorization")
+        if auth_header and auth_header.lower().startswith("bearer "):
+            token = auth_header.split(None, 1)[1].strip()
     try:
+        if not token:
+            raise ValueError("missing token")
         payload = decode_access_token(token)
         email = (payload.get("sub") or "").lower()
         if not email:
@@ -105,3 +112,39 @@ async def websocket_notifications(websocket: WebSocket, token: str = Query(...))
         await manager.disconnect(email, websocket)
     except Exception:
         await manager.disconnect(email, websocket)
+
+
+# Public alias WITHOUT the /notifications prefix so that frontend wss://host/ws/notifications works.
+# This duplicates logic minimally; kept separate to avoid breaking existing mounted prefix path.
+from app.core.security import decode_access_token as _decode_token  # local alias
+import logging as _logging
+
+from app.services.notification_ws import manager as _alias_manager
+
+from fastapi import WebSocket as _WebSocket, WebSocketDisconnect as _WebSocketDisconnect, Query as _Query
+
+@router.websocket("/alias/ws/notifications")  # mounted under /notifications -> /notifications/alias/ws/notifications
+async def websocket_notifications_internal_alias(websocket: _WebSocket, token: str | None = _Query(None)):
+    # Not intended for external use, internal alias kept for compatibility if path rewriting needed later.
+    try:
+        if not token:
+            auth_header = websocket.headers.get("authorization")
+            if auth_header and auth_header.lower().startswith("bearer "):
+                token = auth_header.split(None, 1)[1].strip()
+        if not token:
+            await websocket.close(code=4401)
+            return
+        payload = _decode_token(token)
+        email = (payload.get("sub") or "").lower()
+        if not email:
+            await websocket.close(code=4401); return
+    except Exception:
+        await websocket.close(code=4401); return
+    await _alias_manager.connect(email, websocket)
+    try:
+        while True:
+            _ = await websocket.receive_text()
+    except _WebSocketDisconnect:
+        await _alias_manager.disconnect(email, websocket)
+    except Exception:
+        await _alias_manager.disconnect(email, websocket)
