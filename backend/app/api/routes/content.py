@@ -121,14 +121,31 @@ def click_offer(offer_id: int, db: Session = Depends(get_db)):
 # Admin CRUD
 @router.post('/admin/banners', dependencies=[Depends(require_roles('admin'))], response_model=dict)
 def create_banner(payload: dict, db: Session = Depends(get_db)):
+    """Create banner.
+
+    Now enforces that ALL key fields are provided: title, image_url, link_url, position.
+    This gives a clearer admin UX (no accidental half-empty banner records).
+    """
     title = (payload.get('title') or '').strip()
-    if not title:
-        raise HTTPException(status_code=400, detail='title required')
+    image_url = (payload.get('image_url') or '').strip()
+    link_url = (payload.get('link_url') or '').strip()
+    # position can be 0 so handle separately
+    has_position = 'position' in payload
+    position = payload.get('position', 0)
+
+    missing = []
+    if not title: missing.append('title')
+    if not image_url: missing.append('image_url')
+    if not link_url: missing.append('link_url')
+    if not has_position: missing.append('position')
+    if missing:
+        raise HTTPException(status_code=400, detail=f"missing required fields: {', '.join(missing)}")
+
     b = Banner(
         title=title,
-        image_url=payload.get('image_url'),
-        link_url=payload.get('link_url'),
-        position=payload.get('position', 0),
+        image_url=image_url,
+        link_url=link_url,
+        position=position,
         is_active=bool(payload.get('is_active', True)),
     )
     db.add(b)
@@ -156,9 +173,17 @@ def update_banner(banner_id: int, payload: dict, db: Session = Depends(get_db)):
     b = db.query(Banner).filter(Banner.id == banner_id).first()
     if not b:
         raise HTTPException(status_code=404, detail='not found')
-    for key in ['title', 'image_url', 'link_url', 'position', 'is_active']:
+    # If any of the required keys are being changed, ensure they are not blank.
+    for key in ['title', 'image_url', 'link_url']:
         if key in payload:
-            setattr(b, key, payload[key])
+            val = (payload.get(key) or '').strip()
+            if not val:
+                raise HTTPException(status_code=400, detail=f'{key} cannot be empty')
+            setattr(b, key, val)
+    if 'position' in payload:
+        setattr(b, 'position', payload['position'])
+    if 'is_active' in payload:
+        setattr(b, 'is_active', bool(payload['is_active']))
     db.commit()
     _cache_invalidate('banners')
     return {'status': 'ok'}

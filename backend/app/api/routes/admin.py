@@ -352,9 +352,40 @@ def deactivate_company(company_id: int, db: Session = Depends(get_db)):
     c = db.query(Company).filter(Company.id == company_id).first()
     if not c:
         return {"error": "not found"}
+    if not c.is_active:
+        # Idempotent
+        return {"status": "ok", "detail": "already inactive"}
     c.is_active = False
+    # Unassign all managers linked to this company
+    links = db.query(CompanyManager).filter(CompanyManager.company_id == c.id).all()
+    removed = 0
+    for l in links:
+        db.delete(l)
+        removed += 1
     db.commit()
-    return {"status": "ok"}
+    return {"status": "ok", "unassigned_managers": removed}
+
+
+@router.delete("/companies/{company_id}", response_model=dict)
+def delete_company(company_id: int, db: Session = Depends(get_db)):
+    """Delete an inactive company.
+
+    Safety rules:
+      - Company must exist.
+      - Must already be inactive (force explicit deactivate first to avoid accidental deletion).
+      - All manager links are removed (should already be removed on deactivate but ensured here).
+      - (Optional future) Could check for existing flights/tickets before hard delete.
+    """
+    c = db.query(Company).filter(Company.id == company_id).first()
+    if not c:
+        return {"error": "not found"}
+    if c.is_active:
+        return {"error": "company must be deactivated first"}
+    # Remove any lingering links just in case
+    db.query(CompanyManager).filter(CompanyManager.company_id == c.id).delete(synchronize_session=False)
+    db.delete(c)
+    db.commit()
+    return {"status": "deleted"}
 
 
 @router.post("/companies/{company_id}/assign-manager", response_model=dict)

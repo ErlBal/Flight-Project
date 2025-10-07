@@ -1,0 +1,22 @@
+# Root .dockerignore to shrink build context for multi-stage or future aggregate builds
+.git
+**/.git
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+*.log
+*.tmp
+*.sqlite3
+*.db
+.env
+.env.*
+Dockerfile*
+node_modules
+frontend/dist
+coverage
+.pytest_cache
+.mypy_cache
+.cache
+.idea
+.vscode
