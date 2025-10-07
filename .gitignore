@@ -37,8 +37,6 @@ backend/*.sqlite
 *.env.test.local
 *.env.production.local
 
-
-README.md
 ROADMAP.md
 DEPLOYMENT.md
 API.md
